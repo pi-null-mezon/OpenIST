@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     #endif
 
     const char *_indirname = 0, *_outcnnfilename = 0;
-    int _epoch = 10, _minibatch = 1, _width = 160, _height = 120, _inchannels = 0, _outchannels = 0;
+    int _epoch = 10, _minibatch = 1, _width = 320, _height = 240, _inchannels = 0, _outchannels = 0;
     const char *_incnnfilename = 0, *_inimgfilename = 0, *_outimgfilename = 0;
     while(--argc > 0 && (*++argv)[0] == '-') {
         char _opt = *++argv[0];
@@ -82,7 +82,9 @@ int main(int argc, char *argv[])
         net.setOutputChannels(_outchannels);
         net.setInputSize(cv::Size(_width, _height));
 
+        std::cout << "Training started...\n";
         net.train(vimgs, vlbls, _epoch, _minibatch);
+        std::cout << "Training finished.\n";
 
         if(_outcnnfilename != 0) {
             net.save(_outcnnfilename);
@@ -94,11 +96,29 @@ int main(int argc, char *argv[])
         std::cout << "Prediction mode selected\n";
 
         CNNSegmentnet net;
-        net.load(_incnnfilename);
-        std::cout << "Network loaded from " << _incnnfilename << ".\n";
+        if(net.load(_incnnfilename))
+            std::cout << "Network loaded from " << _incnnfilename << ".\n";
+        else {
+            std::cout << "Can not load network from file " << _incnnfilename;
+            return -1;
+        }
 
         cv::Mat img = QImageFinder::readImage(_inimgfilename);
-        net.predict(img);
+        if(img.empty()) {
+            std::cout << "Can not open image to segment! Abort...";
+            return -2;
+        }
+
+        cv::Mat _outmat = net.predict(img);
+        std::cout << "Press 'q' to quit from the app.";
+        if(!_outmat.empty()) {
+            while(true) {
+                cv::namedWindow("Segmented image", CV_WINDOW_NORMAL);
+                cv::imshow("Segmented image", _outmat);
+                if(cv::waitKey(33) == 'q')
+                    break;
+            }
+        }
     }
 
 

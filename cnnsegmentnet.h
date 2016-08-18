@@ -14,7 +14,7 @@ public:
     CNNSegmentnet();
     void train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch);
     void save(const char *filename) const;
-    void load(const char *filename);
+    bool load(const char *filename);
     cv::Mat segment(cv::InputArray src) const;
     cv::Size getInputSize() const;
     void setInputSize(const cv::Size &_size);
@@ -22,7 +22,7 @@ public:
     void setInputChannels(int _value);
     int getOutputChannels() const;
     void setOutputChannels(int _value);
-    void predict(const cv::Mat &image) const;
+    cv::Mat predict(const cv::Mat &image) const;
 
 private:
     tiny_cnn::network<tiny_cnn::sequential> __initNet(const cv::Size &size, int inchannels, int outchannels);

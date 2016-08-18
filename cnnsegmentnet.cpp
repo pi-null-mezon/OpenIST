@@ -1,6 +1,8 @@
 #include "cnnsegmentnet.h"
 #include <opencv2/highgui.hpp>
 
+#include <qDebug>
+
 using namespace activation;
 //-------------------------------------------------------------------------------------------------------
 CNNSegmentnet::CNNSegmentnet()
@@ -13,12 +15,17 @@ network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannel
     int _kernels = 3;
     network<sequential> _net;
 
-    _net << convolutional_layer<tan_h>(size.width, size.height, 3, inchannels, _kernels, padding::same)
-         << average_pooling_layer<tan_h>(size.width, size.height, _kernels, 2)
-         << convolutional_layer<tan_h>(size.width/2, size.height/2, 3, _kernels, _kernels, padding::same)
-         << convolutional_layer<tan_h>(size.width/2, size.height/2, 3, _kernels, _kernels, padding::same)
-         << average_unpooling_layer<tan_h>(size.width/2, size.height/2, _kernels, 2)
-         << convolutional_layer<tan_h>(size.width, size.height, 3, _kernels, outchannels, padding::same);
+    /*_net << convolutional_layer<relu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
+         << convolutional_layer<relu>(size.width, size.height, 5, _kernels, outchannels, padding::same);*/
+
+    _net << convolutional_layer<relu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
+         << convolutional_layer<relu>(size.width, size.height, 3, _kernels, 2*_kernels, padding::same)
+         << average_pooling_layer<relu>(size.width, size.height, 2*_kernels, 2)
+         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 2*_kernels, 4*_kernels, padding::same)
+         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
+         << average_unpooling_layer<relu>(size.width/2, size.height/2, 4*_kernels, 2)
+         << convolutional_layer<relu>(size.width, size.height, 3, 4*_kernels, 4*_kernels, padding::same)
+         << convolutional_layer<tan_h>(size.width, size.height, 5, 4*_kernels, outchannels, padding::same);
 
     return _net;
 }
@@ -40,8 +47,13 @@ void CNNSegmentnet::train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _
     std::vector<vec_t> srcvec_t;
     _vvis.getMatVector(srcmats);
     for(size_t it = 0; it < srcmats.size(); it++) {
-        if((it == 0) &&  (m_inputchannels == 0))
-            m_inputchannels = (srcmats[it]).channels();
+        if(it == 0) {
+            if(m_inputchannels == 0)
+                m_inputchannels = (srcmats[it]).channels();
+            if(m_inputsize.area() == 0) {
+                setInputSize(cv::Size((srcmats[it]).cols,(srcmats[it]).rows));
+            }
+        }
 
         srcvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_inputchannels) );
     }
@@ -124,7 +136,7 @@ void CNNSegmentnet::save(const char *filename) const
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void CNNSegmentnet::load(const char *filename)
+bool CNNSegmentnet::load(const char *filename)
 {
     cv::FileStorage fs(filename, cv::FileStorage::READ);
     if(fs.isOpened()) {
@@ -153,14 +165,34 @@ void CNNSegmentnet::load(const char *filename)
         }
 
         fs.release();
+        return true;
     }
+    return false;
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void CNNSegmentnet::predict(const cv::Mat &image) const
+cv::Mat CNNSegmentnet::predict(const cv::Mat &image) const
 {
-    m_net.predict( __mat2vec_t(image, m_inputsize, m_inputchannels) );
+    vec_t vect = m_net.predict( __mat2vec_t(image, m_inputsize, m_inputchannels) );
+
     visualizeActivations(m_net);
+
+    cv::Mat _outmat;
+    int _type = (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64FC1 : CV_32FC1;
+    switch(m_outputchannels){
+        case 1:
+            _outmat = cv::Mat( m_inputsize, _type, &vect[0]);
+            break;
+        case 3:
+            std::vector<cv::Mat> vmats;
+            vmats.push_back( cv::Mat( m_inputsize, _type, &vect[2*m_inputsize.area()]) );
+            vmats.push_back( cv::Mat( m_inputsize, _type, &vect[m_inputsize.area()]) );
+            vmats.push_back( cv::Mat( m_inputsize, _type, &vect[0]) );
+            cv::merge(vmats,_outmat);
+            break;
+    }
+    cv::normalize(_outmat, _outmat, 0.0, 1.0, cv::NORM_MINMAX);
+    return _outmat;
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -185,16 +217,30 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
     }
     // Convert to float_t type
     _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, 2.0/255.0, -1.0);
-    // Construct vec_t image representation
 
     cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);
     cv::imshow("CNNSegmentnet", _mat);
-    cv::waitKey(100);
+    cv::waitKey(300);
 
-    int length = _mat.cols * _mat.rows * _mat.channels();
-    tiny_cnn::float_t *ptr = _mat.ptr<tiny_cnn::float_t>(0);
-    tiny_cnn::vec_t ovec(ptr, ptr + length);
-    return ovec;
+    // Construct vec_t image representation
+    tiny_cnn::vec_t ovect;
+    switch(_mat.channels()) {
+        case 1: {
+            tiny_cnn::float_t *ptr = _mat.ptr<tiny_cnn::float_t>(0);
+            ovect = tiny_cnn::vec_t(ptr, ptr + _mat.cols * _mat.rows );
+        } break;
+        case 3: {
+            std::vector<cv::Mat> _vmats;
+            cv::split(_mat, _vmats);
+            for(int i = 0; i < 3; i++) {
+                cv::Mat _chanmat = _vmats[i];
+                tiny_cnn::float_t *ptr = _chanmat.ptr<tiny_cnn::float_t>(0);
+                ovect.insert(ovect.end(), ptr, ptr + _mat.cols * _mat.rows);
+            }
+        } break;
+    }
+
+    return ovect;
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -235,10 +281,9 @@ void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net)
         tiny_cnn::image<unsigned char> img = _net[i]->output_to_image(); // visualize activations of recent input
         cv::Mat mat = tinyimage2mat(img);
         if(mat.empty() == false) {
-            cv::String windowname = (std::string("Activation of layer №") + std::to_string(i)).c_str();
+            cv::String windowname = (std::string("Activation of layer ") + std::to_string(i)).c_str();
             cv::namedWindow(windowname, CV_WINDOW_NORMAL);
             cv::imshow(windowname, mat);
-            cv::waitKey(5000);
         }
     }
 
