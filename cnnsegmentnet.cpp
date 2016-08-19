@@ -15,9 +15,15 @@ network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannel
     int _kernels = 3;
     network<sequential> _net;
 
-    /*_net << convolutional_layer<relu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
-         << convolutional_layer<relu>(size.width, size.height, 5, _kernels, outchannels, padding::same);*/
-
+    /*_net << convolutional_layer<elu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
+         << convolutional_layer<elu>(size.width, size.height, 3, _kernels, 2*_kernels, padding::same)
+            << average_pooling_layer<elu>(size.width, size.height, 2*_kernels, 2)
+            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 2*_kernels, 4*_kernels, padding::same)
+            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
+            << average_unpooling_layer<elu>(size.width/2, size.height/2, 4*_kernels, 2)
+         << convolutional_layer<elu>(size.width, size.height, 3, 4*_kernels, 2*_kernels, padding::same)
+         << convolutional_layer<tan_h>(size.width, size.height, 5, 2*_kernels, outchannels, padding::same);
+*/
     _net << convolutional_layer<relu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
          << convolutional_layer<relu>(size.width, size.height, 3, _kernels, 2*_kernels, padding::same)
          << average_pooling_layer<relu>(size.width, size.height, 2*_kernels, 2)
@@ -78,7 +84,7 @@ void CNNSegmentnet::train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _
     m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
 
     // Batch_size is a number of samples enrolled per parameter update
-    gradient_descent _opt;
+    adagrad _opt;
     m_net.train<mse>(_opt, srcvec_t, segvec_t, _minibatch, _epoch);
 }
 //-------------------------------------------------------------------------------------------------------

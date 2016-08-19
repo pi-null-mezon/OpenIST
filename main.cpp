@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     #endif
 
     const char *_indirname = 0, *_outcnnfilename = 0;
-    int _epoch = 10, _minibatch = 1, _width = 320, _height = 240, _inchannels = 0, _outchannels = 0;
+    int _epoch = 5, _minibatch = 1, _width = 160, _height = 120, _inchannels = 0, _outchannels = 0;
     const char *_incnnfilename = 0, *_inimgfilename = 0, *_outimgfilename = 0;
     while(--argc > 0 && (*++argv)[0] == '-') {
         char _opt = *++argv[0];
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 
         std::vector<cv::Mat> vimgs, vlbls;
         QImageFinder::readImagesFromPath(_indirname, vimgs, vlbls);
-        std::cout << "Found " << vimgs.size() << " images and " << vlbls.size() << " segmented images.\n";
+        std::cout << "Found " << vimgs.size() << " images and " << vlbls.size() << " segmented images\n";
 
         CNNSegmentnet net;
         net.setInputChannels(_inchannels);
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 
         if(_outcnnfilename != 0) {
             net.save(_outcnnfilename);
-            std::cout << "Network has been saved in " << _outcnnfilename << ".\n";
+            std::cout << "Network has been saved in " << _outcnnfilename << "\n";
         }
     }
 
@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 
         CNNSegmentnet net;
         if(net.load(_incnnfilename))
-            std::cout << "Network loaded from " << _incnnfilename << ".\n";
+            std::cout << "Network loaded from " << _incnnfilename << "\n";
         else {
             std::cout << "Can not load network from file " << _incnnfilename;
             return -1;
