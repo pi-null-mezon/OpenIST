@@ -221,9 +221,19 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
                 break;
         }
     }
-    // Convert to float_t type
-    _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, 2.0/255.0, -1.0);
+    // Convert to float_t type    
+    int _maxval = 1;
+    switch(_mat.depth()) {
+        case CV_8U:
+            _maxval = 255;
+            break;
+        case CV_16U:
+            _maxval = 65535;
+            break;
+    }
+    _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, 2.0/_maxval, -1.0);
 
+    // Visualize
     cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);
     cv::imshow("CNNSegmentnet", _mat);
     cv::waitKey(300);
