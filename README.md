@@ -1,6 +1,6 @@
 # OpenIST
 
-A set of open tools for image segmentation and machine learning
+A set of open tools for image segmentation with machine learning
 
 **Acknowledgements**
 
