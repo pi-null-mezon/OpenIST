@@ -9,4 +9,4 @@ Here you can find some data sets for project testing
 
 <img src="https://github.com/pi-null-mezon/OpenIST/blob/master/Datasets/Chest_x-ray/1-10-500-500-100.jpg" width="120">
 
-<img <src="https://github.com/pi-null-mezon/OpenIST/blob/master/Datasets/Chest_x-ray/1-10-500-500-100@.png" width="120">  
+<img src="https://github.com/pi-null-mezon/OpenIST/blob/master/Datasets/Chest_x-ray/1-10-500-500-100@.png" width="120">  
