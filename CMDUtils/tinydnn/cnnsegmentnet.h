@@ -13,9 +13,9 @@ class CNNSegmentnet
 public:
     CNNSegmentnet();
     void train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch);
+    void update(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch);
     void save(const char *filename) const;
     bool load(const char *filename);
-    cv::Mat segment(cv::InputArray src) const;
     cv::Size getInputSize() const;
     void setInputSize(const cv::Size &_size);
     int getInputChannels() const;
@@ -25,6 +25,7 @@ public:
     cv::Mat predict(const cv::Mat &image) const;
 
 private:
+    void __train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch, bool preservedata);
     tiny_cnn::network<tiny_cnn::sequential> __initNet(const cv::Size &size, int inchannels, int outchannels);
     cv::Mat __cropresize(const cv::Mat &input, const cv::Size size) const;
     tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, int targetChannels) const;

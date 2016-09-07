@@ -1,4 +1,4 @@
-#CONFIG += enableopenmp
+CONFIG += enableopenmp
 enableopenmp {
     win32-msvc* {
         QMAKE_CXXFLAGS+= -openmp

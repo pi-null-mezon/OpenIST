@@ -12,32 +12,40 @@ CNNSegmentnet::CNNSegmentnet()
 //-------------------------------------------------------------------------------------------------------
 network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannels, int outchannels)
 {  
-    int _kernels = 3;
+    int _kernels = 8;
     network<sequential> _net;
 
-    /*_net << convolutional_layer<elu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
-         << convolutional_layer<elu>(size.width, size.height, 3, _kernels, 2*_kernels, padding::same)
-            << average_pooling_layer<elu>(size.width, size.height, 2*_kernels, 2)
-            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 2*_kernels, 4*_kernels, padding::same)
-            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
-            << average_unpooling_layer<elu>(size.width/2, size.height/2, 4*_kernels, 2)
-         << convolutional_layer<elu>(size.width, size.height, 3, 4*_kernels, 2*_kernels, padding::same)
-         << convolutional_layer<tan_h>(size.width, size.height, 5, 2*_kernels, outchannels, padding::same);
-*/
-    _net << convolutional_layer<relu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
-         << convolutional_layer<relu>(size.width, size.height, 3, _kernels, 2*_kernels, padding::same)
-         << average_pooling_layer<relu>(size.width, size.height, 2*_kernels, 2)
-         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 2*_kernels, 4*_kernels, padding::same)
-         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
-         << average_unpooling_layer<relu>(size.width/2, size.height/2, 4*_kernels, 2)
-         << convolutional_layer<relu>(size.width, size.height, 3, 4*_kernels, 4*_kernels, padding::same)
-         << convolutional_layer<tan_h>(size.width, size.height, 5, 4*_kernels, outchannels, padding::same);
+    _net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+         << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
+         << average_pooling_layer<relu>(size.width, size.height, _kernels, 2)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
+            << average_pooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
+               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+            << average_unpooling_layer<relu>(size.width/4, size.height/4, 4*_kernels, 2)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
+         << average_unpooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
+         << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
+         << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
+         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
 
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
 void CNNSegmentnet::train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch)
+{
+    train(_vvis, _vseg, _epoch, _minibatch, false);
+}
+void CNNSegmentnet::update(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch)
+{
+    train(_vvis, _vseg, _epoch, _minibatch, true);
+}
+//-------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------
+void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch, bool preservedata)
 {
     if(_vvis.kind() != cv::_InputArray::STD_VECTOR_MAT && _vseg.kind() != cv::_InputArray::STD_VECTOR_MAT) {
         cv::String error_message = "The images are expected as InputArray::STD_VECTOR_MAT (a std::vector<Mat>) or _InputArray::STD_VECTOR_MAT (a std::vector<Mat>).";
@@ -81,10 +89,11 @@ void CNNSegmentnet::train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _
         CV_Error(cv::Error::StsBadArg, error_message);
     }   
 
-    m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
+    if(preservedata == false)
+        m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
 
     // Batch_size is a number of samples enrolled per parameter update
-    adagrad _opt;
+    adam _opt;
     m_net.train<mse>(_opt, srcvec_t, segvec_t, _minibatch, _epoch);
 }
 //-------------------------------------------------------------------------------------------------------
@@ -236,7 +245,7 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
     // Visualize
     cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);
     cv::imshow("CNNSegmentnet", _mat);
-    cv::waitKey(300);
+    cv::waitKey(30);
 
     // Construct vec_t image representation
     tiny_cnn::vec_t ovect;
