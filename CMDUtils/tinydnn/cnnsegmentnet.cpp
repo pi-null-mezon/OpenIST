@@ -95,7 +95,7 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
 
     // Check if data is well-aligned
     if(segvec_t.size() != srcvec_t.size()) {
-        cv::String error_message = cv::format("The number of samples (src) must equal the number of labels (labels). Was len(samples)=%d, len(labels)=%d.", srcvec_t.size(), segvec_t.size());
+        cv::String error_message = cv::format("The number of samples (src) must be equal to the number of the labels. Was len(samples)=%d, len(labels)=%d.", srcvec_t.size(), segvec_t.size());
         CV_Error(cv::Error::StsBadArg, error_message);
     }   
 
