@@ -10,3 +10,13 @@ Here you can find some data sets for project testing
 
 <img src="https://github.com/pi-null-mezon/OpenIST/blob/master/Datasets/Chest_x-ray/1-10-500-500-100.jpg" width="120">
 <img src="https://github.com/pi-null-mezon/OpenIST/blob/master/Datasets/Chest_x-ray/1-10-500-500-100@.png" width="120">  
+
+**Dataset 2**
+- Name: Montgomery County X-ray Set
+- Description: https://openi.nlm.nih.gov/faq.php?it=xg
+- Download link: https://openi.nlm.nih.gov/imgs/collections/NLM-MontgomeryCXRSet.zip
+
+**Dataset 3**
+- Name: Shenzhen Hospital X-ray Set / China data set
+- Description: https://openi.nlm.nih.gov/faq.php?it=xg
+- Download link: https://openi.nlm.nih.gov/imgs/collections/ChinaSet_AllFiles.zip

@@ -15,7 +15,7 @@ network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannel
     int _kernels = 8;
     network<sequential> _net;
 
-    _net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+    /*_net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
          << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
          << average_pooling_layer<relu>(size.width, size.height, _kernels, 2)
             << convolutional_layer<identity>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
@@ -29,6 +29,16 @@ network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannel
          << average_unpooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
          << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
          << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
+         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);*/
+
+    _net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+         << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
+         << average_pooling_layer<leaky_relu>(size.width, size.height, _kernels, 2)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
+         << average_unpooling_layer<leaky_relu>(size.width/2, size.height/2, 2*_kernels, 2)
+         << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
+         << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
          << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
 
     return _net;
@@ -37,11 +47,11 @@ network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannel
 //-------------------------------------------------------------------------------------------------------
 void CNNSegmentnet::train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch)
 {
-    train(_vvis, _vseg, _epoch, _minibatch, false);
+    __train(_vvis, _vseg, _epoch, _minibatch, false);
 }
 void CNNSegmentnet::update(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch)
 {
-    train(_vvis, _vseg, _epoch, _minibatch, true);
+    __train(_vvis, _vseg, _epoch, _minibatch, true);
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -80,7 +90,7 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
         if(it == 0 && m_outputchannels == 0)
             m_outputchannels = (srcmats[it]).channels();
 
-        segvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_outputchannels) );
+        segvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_outputchannels, 0.0, 1.0) );
     }
 
     // Check if data is well-aligned
@@ -211,7 +221,7 @@ cv::Mat CNNSegmentnet::predict(const cv::Mat &image) const
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size targetSize, int targetChannels) const
+tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size targetSize, int targetChannels, double min, double max) const
 {
     // Resize if needed
     cv::Mat _mat;
@@ -220,7 +230,7 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
     else
         _mat = img;
     // Change channels quantity if needed
-    if((targetChannels > 0) && (targetChannels != _mat.channels())) {
+    if((targetChannels > 0) && (targetChannels != _mat.channels()))
         switch(targetChannels) {
             case 1:
                 cv::cvtColor(_mat, _mat, CV_BGR2GRAY);
@@ -229,7 +239,7 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
                 cv::cvtColor(_mat, _mat, CV_GRAY2BGR);
                 break;
         }
-    }
+
     // Convert to float_t type    
     int _maxval = 1;
     switch(_mat.depth()) {
@@ -240,7 +250,7 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
             _maxval = 65535;
             break;
     }
-    _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, 2.0/_maxval, -1.0);
+    _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, (max-min)/_maxval, min);
 
     // Visualize
     cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);

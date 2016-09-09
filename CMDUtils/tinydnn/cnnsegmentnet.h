@@ -28,7 +28,7 @@ private:
     void __train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays _vseg, int _epoch, int _minibatch, bool preservedata);
     tiny_cnn::network<tiny_cnn::sequential> __initNet(const cv::Size &size, int inchannels, int outchannels);
     cv::Mat __cropresize(const cv::Mat &input, const cv::Size size) const;
-    tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, int targetChannels) const;
+    tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, int targetChannels, double min=-1.0, double max=1.0) const;
 
     mutable tiny_cnn::network<tiny_cnn::sequential> m_net;
     cv::Size m_inputsize;
