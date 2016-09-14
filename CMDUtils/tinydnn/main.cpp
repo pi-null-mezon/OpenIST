@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     #endif
 
     const char *_indirname = 0, *_outcnnfilename = 0;
-    int _epoch = 20, _minibatch = 4, _width = 200, _height = 150, _inchannels = 0, _outchannels = 0;
+    int _epoch = 30, _minibatch = 4, _width = 32, _height = 32, _inchannels = 0, _outchannels = 0;
     const char *_incnnfilename = 0, *_inimgfilename = 0, *_outimgfilename = 0;
     while(--argc > 0 && (*++argv)[0] == '-') {
         char _opt = *++argv[0];

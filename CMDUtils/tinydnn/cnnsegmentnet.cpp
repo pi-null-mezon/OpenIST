@@ -1,8 +1,6 @@
 #include "cnnsegmentnet.h"
 #include <opencv2/highgui.hpp>
 
-#include <qDebug>
-
 using namespace activation;
 //-------------------------------------------------------------------------------------------------------
 CNNSegmentnet::CNNSegmentnet()
@@ -12,10 +10,10 @@ CNNSegmentnet::CNNSegmentnet()
 //-------------------------------------------------------------------------------------------------------
 network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannels, int outchannels)
 {  
-    int _kernels = 8;
+    int _kernels = 16;
     network<sequential> _net;
-
-    /*_net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+    /*
+    _net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
          << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
          << average_pooling_layer<relu>(size.width, size.height, _kernels, 2)
             << convolutional_layer<identity>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
@@ -23,22 +21,36 @@ network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannel
             << average_pooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
                << convolutional_layer<identity>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
                << convolutional_layer<identity>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+               << average_pooling_layer<relu>(size.width/4, size.height/4, 4*_kernels, 2)
+                  << convolutional_layer<identity>(size.width/8, size.height/8, 3, 4*_kernels, 8*_kernels, padding::same)
+                  << convolutional_layer<identity>(size.width/8, size.height/8, 3, 8*_kernels, 8*_kernels, padding::same)
+               << average_unpooling_layer<relu>(size.width/8, size.height/8, 8*_kernels, 2)
+               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 8*_kernels, 8*_kernels, padding::same)
+               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 8*_kernels, 4*_kernels, padding::same)
             << average_unpooling_layer<relu>(size.width/4, size.height/4, 4*_kernels, 2)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
             << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
          << average_unpooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
+         << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, 2*_kernels, padding::same)
          << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
-         << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
-         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);*/
+         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
+    */
 
     _net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
          << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
-         << average_pooling_layer<leaky_relu>(size.width, size.height, _kernels, 2)
+         << average_pooling_layer<relu>(size.width, size.height, _kernels, 2)
             << convolutional_layer<identity>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
             << convolutional_layer<identity>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
-         << average_unpooling_layer<leaky_relu>(size.width/2, size.height/2, 2*_kernels, 2)
+            << average_pooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
+               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+            << average_unpooling_layer<relu>(size.width/4, size.height/4, 4*_kernels, 2)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
+            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
+         << average_unpooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
+         << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, 2*_kernels, padding::same)
          << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
-         << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
          << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
 
     return _net;
@@ -99,12 +111,20 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
         CV_Error(cv::Error::StsBadArg, error_message);
     }   
 
+    // Shuffle input pairs in random order, it should prevent overfitting when training samples is taken from different sources
+    __random_shuffle(srcvec_t.begin(),srcvec_t.end(),segvec_t.begin(),segvec_t.end());
+
     if(preservedata == false)
         m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
 
-    // Batch_size is a number of samples enrolled per parameter update
+    // Batch_size is a number of samples enrolled per parameters update
     adam _opt;
-    m_net.train<mse>(_opt, srcvec_t, segvec_t, _minibatch, _epoch);
+    m_net.fit<cross_entropy_multiclass>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
+                                        [](){},
+                                        [&](){
+                                            visualizeLastLayerActivation(m_net);
+                                             });
+    timer
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -199,9 +219,6 @@ bool CNNSegmentnet::load(const char *filename)
 cv::Mat CNNSegmentnet::predict(const cv::Mat &image) const
 {
     vec_t vect = m_net.predict( __mat2vec_t(image, m_inputsize, m_inputchannels) );
-
-    visualizeActivations(m_net);
-
     cv::Mat _outmat;
     int _type = (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64FC1 : CV_32FC1;
     switch(m_outputchannels){
@@ -225,10 +242,18 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
 {
     // Resize if needed
     cv::Mat _mat;
-    if(img.cols != targetSize.width || img.rows != targetSize.height)
-        _mat = __cropresize(img, targetSize);
-    else
+    if(img.cols != targetSize.width || img.rows != targetSize.height) {
+        switch(m_irm){
+            case ImageResizeMethod::CropAndResizeFromCenter:
+                _mat =__cropresize(img, targetSize);
+                break;
+            case ImageResizeMethod::PaddZeroAndResize:
+                _mat = __propresize(img, targetSize);
+                break;
+        }
+    } else {
         _mat = img;
+    }
     // Change channels quantity if needed
     if((targetChannels > 0) && (targetChannels != _mat.channels()))
         switch(targetChannels) {
@@ -310,6 +335,51 @@ cv::Mat CNNSegmentnet::__cropresize(const cv::Mat &input, const cv::Size size) c
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
+cv::Mat CNNSegmentnet::__propresize(const cv::Mat &input, const cv::Size size) const
+{
+    cv::Mat output;
+    if(size.area() > 0){
+        cv::Rect2f roiRect(0,0,0,0);
+        cv::Point shift(0,0);
+        if( (float)input.cols/input.rows > (float)size.width/size.height) {
+            roiRect.width = (float)input.cols;
+            roiRect.height = input.cols * (float)size.height/size.width;
+            shift.y = static_cast<int>((roiRect.height - (float)input.rows)/2.0f);
+        } else {
+            roiRect.height = (float)input.rows;
+            roiRect.width = input.rows * (float)size.width/size.height;
+            shift.x = static_cast<int>((roiRect.width - (float)input.cols)/2.0f);
+        }
+        output = cv::Mat::zeros(roiRect.size(),input.type());
+        cv::Mat imgcontent = output(cv::Rect(0,0,input.cols,input.rows)+shift);
+        input.copyTo(imgcontent);
+        if(roiRect.area() > 0)  {
+            int interpolationMethod = 0;
+            if(size.area() > roiRect.area())
+                interpolationMethod = CV_INTER_CUBIC;
+            else
+                interpolationMethod = CV_INTER_AREA;
+            cv::resize(output, output, size, 0, 0, interpolationMethod);
+        }
+    } else {
+        output = input;
+    }
+    return output;
+}
+//-------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------
+void CNNSegmentnet::setImageResizeMethod(ImageResizeMethod method)
+{
+    m_irm = method;
+}
+//-------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------
+CNNSegmentnet::ImageResizeMethod CNNSegmentnet::getImageResizeMethod() const
+{
+    return m_irm;
+}
+//-------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------
 void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net)
 {
     for(size_t i = 0; i <_net.depth(); i++) {
@@ -321,7 +391,20 @@ void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net)
             cv::imshow(windowname, mat);
         }
     }
+    cv::waitKey(1);
 
+}
+//-------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------
+void visualizeLastLayerActivation(const tiny_cnn::network<tiny_cnn::sequential> &_net)
+{
+    tiny_cnn::image<unsigned char> img = _net[_net.depth()-1]->output_to_image(); // visualize activations of recent input
+    cv::Mat mat = tinyimage2mat(img);
+    if(mat.empty() == false) {
+        cv::namedWindow("Last layer activation", CV_WINDOW_NORMAL);
+        cv::imshow("Last layer activation", mat);
+    }
+    cv::waitKey(1);
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -334,7 +417,23 @@ cv::Mat tinyimage2mat(const tiny_cnn::image<T> &_image)
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-
+template <typename Iterator1, typename Iterator2>
+void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, Iterator2 v2last)
+{
+    std::iterator_traits<Iterator1>::difference_type i, v1length = v1last - v1first;
+    std::iterator_traits<Iterator2>::difference_type v2length = v2last - v2first;
+    if(v1length != v2length) {
+        CV_Error(Error::StsBadArg, "Error in __random_shuffle(): input vectors have different sizes");
+        return;
+    } else {
+        int pos;
+        for(i = 0; i < v1length; i++) {
+            pos = std::rand() % v1length;
+            std::swap(v1first[i],v1first[pos]);
+            std::swap(v2first[i],v2first[pos]);
+        }
+    }
+}
 
 
 
