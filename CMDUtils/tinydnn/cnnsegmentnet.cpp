@@ -119,12 +119,18 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
 
     // Batch_size is a number of samples enrolled per parameters update
     adam _opt;
-    m_net.fit<cross_entropy_multiclass>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
-                                        [](){},
-                                        [&](){
-                                            visualizeLastLayerActivation(m_net);
-                                             });
-    timer
+    // cross-entropy loss function for (multiple independent) binary classifications
+    // so if i have one output channel then cross_entropy is suitable, note however that
+    // in label data (segvec_t here) all values should be in [0.0; 1.0] interval
+    if(m_outputchannels > 1) {
+        m_net.fit<cross_entropy>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
+                                        [&](){/*visualizeLastLayerActivation(m_net);*/},
+                                        [&](){visualizeLastLayerActivation(m_net);});
+    } else {
+        m_net.fit<cross_entropy_multiclass>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
+                                        [&](){/*visualizeLastLayerActivation(m_net);*/},
+                                        [&](){visualizeLastLayerActivation(m_net);});
+    }
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -280,7 +286,7 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
     // Visualize
     cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);
     cv::imshow("CNNSegmentnet", _mat);
-    cv::waitKey(30);
+    cv::waitKey(15);
 
     // Construct vec_t image representation
     tiny_cnn::vec_t ovect;
@@ -423,7 +429,7 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
     std::iterator_traits<Iterator1>::difference_type i, v1length = v1last - v1first;
     std::iterator_traits<Iterator2>::difference_type v2length = v2last - v2first;
     if(v1length != v2length) {
-        CV_Error(Error::StsBadArg, "Error in __random_shuffle(): input vectors have different sizes");
+        CV_Error(cv::Error::StsBadArg, "Error in __random_shuffle(): input vectors have different sizes");
         return;
     } else {
         int pos;
