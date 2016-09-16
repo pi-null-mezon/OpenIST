@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
         QImageFinder::readImagesFromPath(_indirname, vimgs, vlbls);
         std::cout << "Found " << vimgs.size() << " images and " << vlbls.size() << " segmented images\n";
 
-        CNNSegmentnet net;
+        segnet::SegNetForLungs net;
         net.setInputChannels(_inchannels);
         net.setOutputChannels(_outchannels);
         net.setInputSize(cv::Size(_width, _height));
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     if(_incnnfilename != 0 && _inimgfilename != 0) {
         std::cout << "Prediction mode selected\n";
 
-        CNNSegmentnet net;
+        segnet::SegNetForLungs net;
         if(net.load(_incnnfilename))
             std::cout << "Network loaded from " << _incnnfilename << "\n";
         else {

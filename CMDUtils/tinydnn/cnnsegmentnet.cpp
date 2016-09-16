@@ -1,58 +1,20 @@
 #include "cnnsegmentnet.h"
 #include <opencv2/highgui.hpp>
 
+namespace segnet {
+
 using namespace activation;
 //-------------------------------------------------------------------------------------------------------
 CNNSegmentnet::CNNSegmentnet()
-{
-}
+{}
+//-------------------------------------------------------------------------------------------------------
+CNNSegmentnet::~CNNSegmentnet()
+{}
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
 network<sequential> CNNSegmentnet::__initNet(const cv::Size &size, int inchannels, int outchannels)
 {  
-    int _kernels = 16;
     network<sequential> _net;
-    /*
-    _net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
-         << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
-         << average_pooling_layer<relu>(size.width, size.height, _kernels, 2)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
-            << average_pooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
-               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
-               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
-               << average_pooling_layer<relu>(size.width/4, size.height/4, 4*_kernels, 2)
-                  << convolutional_layer<identity>(size.width/8, size.height/8, 3, 4*_kernels, 8*_kernels, padding::same)
-                  << convolutional_layer<identity>(size.width/8, size.height/8, 3, 8*_kernels, 8*_kernels, padding::same)
-               << average_unpooling_layer<relu>(size.width/8, size.height/8, 8*_kernels, 2)
-               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 8*_kernels, 8*_kernels, padding::same)
-               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 8*_kernels, 4*_kernels, padding::same)
-            << average_unpooling_layer<relu>(size.width/4, size.height/4, 4*_kernels, 2)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
-         << average_unpooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
-         << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, 2*_kernels, padding::same)
-         << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
-         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
-    */
-
-    _net << convolutional_layer<identity>(size.width, size.height, 3, inchannels, _kernels, padding::same)
-         << convolutional_layer<identity>(size.width, size.height, 3, _kernels, _kernels, padding::same)
-         << average_pooling_layer<relu>(size.width, size.height, _kernels, 2)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
-            << average_pooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
-               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
-               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
-               << convolutional_layer<identity>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
-            << average_unpooling_layer<relu>(size.width/4, size.height/4, 4*_kernels, 2)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
-            << convolutional_layer<identity>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
-         << average_unpooling_layer<relu>(size.width/2, size.height/2, 2*_kernels, 2)
-         << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, 2*_kernels, padding::same)
-         << convolutional_layer<identity>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
-         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
-
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -91,7 +53,7 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
             }
         }
 
-        srcvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_inputchannels) );
+        srcvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_irm, m_inputchannels) );
     }
 
     // Get the vector of segmented images
@@ -102,7 +64,7 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
         if(it == 0 && m_outputchannels == 0)
             m_outputchannels = (srcmats[it]).channels();
 
-        segvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_outputchannels, 0.0, 1.0) );
+        segvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_irm, m_outputchannels, 0.0, 1.0) );
     }
 
     // Check if data is well-aligned
@@ -224,7 +186,8 @@ bool CNNSegmentnet::load(const char *filename)
 //-------------------------------------------------------------------------------------------------------
 cv::Mat CNNSegmentnet::predict(const cv::Mat &image) const
 {
-    vec_t vect = m_net.predict( __mat2vec_t(image, m_inputsize, m_inputchannels) );
+    m_net.set_netphase(tiny_cnn::net_phase::test);
+    vec_t vect = m_net.predict( __mat2vec_t(image, m_inputsize, m_irm, m_inputchannels) );
     cv::Mat _outmat;
     int _type = (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64FC1 : CV_32FC1;
     switch(m_outputchannels){
@@ -244,12 +207,12 @@ cv::Mat CNNSegmentnet::predict(const cv::Mat &image) const
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size targetSize, int targetChannels, double min, double max) const
+tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, ImageResizeMethod resizeMethod, int targetChannels, double min, double max)
 {
     // Resize if needed
     cv::Mat _mat;
     if(img.cols != targetSize.width || img.rows != targetSize.height) {
-        switch(m_irm){
+        switch(resizeMethod){
             case ImageResizeMethod::CropAndResizeFromCenter:
                 _mat =__cropresize(img, targetSize);
                 break;
@@ -310,7 +273,7 @@ tiny_cnn::vec_t CNNSegmentnet::__mat2vec_t(const cv::Mat &img, const cv::Size ta
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-cv::Mat CNNSegmentnet::__cropresize(const cv::Mat &input, const cv::Size size) const
+cv::Mat __cropresize(const cv::Mat &input, const cv::Size size)
 {
     cv::Mat output;
     if(size.area() > 0){
@@ -341,7 +304,7 @@ cv::Mat CNNSegmentnet::__cropresize(const cv::Mat &input, const cv::Size size) c
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-cv::Mat CNNSegmentnet::__propresize(const cv::Mat &input, const cv::Size size) const
+cv::Mat __propresize(const cv::Mat &input, const cv::Size size)
 {
     cv::Mat output;
     if(size.area() > 0){
@@ -380,7 +343,7 @@ void CNNSegmentnet::setImageResizeMethod(ImageResizeMethod method)
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-CNNSegmentnet::ImageResizeMethod CNNSegmentnet::getImageResizeMethod() const
+ImageResizeMethod CNNSegmentnet::getImageResizeMethod() const
 {
     return m_irm;
 }
@@ -418,7 +381,7 @@ template<typename T>
 cv::Mat tinyimage2mat(const tiny_cnn::image<T> &_image)
 {
     std::vector<T> data = _image.data();
-    cv::Mat mat = cv::Mat(_image.height(), _image.width(), CV_8UC1, &data[0]);
+    cv::Mat mat = cv::Mat((int)_image.height(), (int)_image.width(), CV_8UC1, &data[0]);
     return mat.clone();
 }
 //-------------------------------------------------------------------------------------------------------
@@ -440,6 +403,34 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
         }
     }
 }
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+network<sequential> SegNetForLungs::__initNet(const cv::Size &size, int inchannels, int outchannels)
+{
+    int _kernels = 16;
+    network<sequential> _net;
+    _net << convolutional_layer<leaky_relu>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+         << convolutional_layer<leaky_relu>(size.width, size.height, 3, _kernels, _kernels, padding::same)
+         << average_pooling_layer<identity>(size.width, size.height, _kernels, 2)
+            << convolutional_layer<leaky_relu>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+            << convolutional_layer<leaky_relu>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
+            << average_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
+               << convolutional_layer<leaky_relu>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<leaky_relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<leaky_relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+            << average_unpooling_layer<identity>(size.width/4, size.height/4, 4*_kernels, 2)
+            << convolutional_layer<leaky_relu>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
+            << convolutional_layer<leaky_relu>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
+         << average_unpooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
+         << convolutional_layer<leaky_relu>(size.width, size.height, 3, 2*_kernels, 2*_kernels, padding::same)
+         << convolutional_layer<leaky_relu>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
+         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
+    return _net;
+}
+//-----------------------------------------------------------------------------------------
+
+
+} // end of the segnet namespace
 
 
 
