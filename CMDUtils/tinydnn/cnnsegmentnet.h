@@ -125,6 +125,15 @@ template <typename Iterator1, typename Iterator2>
  */
 void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, Iterator2 v2last);
 
+/**
+ * @brief __restoreSize - call to get image with restored size
+ * @param img - input image
+ * @param dstSize - destianation size
+ * @param resizeMethod - a method that was used to initial img resize
+ * @return resized image
+ */
+cv::Mat __restoreSize(const cv::Mat &img, const cv::Size &dstSize, ImageResizeMethod resizeMethod);
+
 
 class SegNetForLungs: public CNNSegmentnet
 {

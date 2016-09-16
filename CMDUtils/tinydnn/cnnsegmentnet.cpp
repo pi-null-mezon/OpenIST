@@ -186,6 +186,9 @@ bool CNNSegmentnet::load(const char *filename)
 //-------------------------------------------------------------------------------------------------------
 cv::Mat CNNSegmentnet::predict(const cv::Mat &image) const
 {
+    // Save input image size
+    cv::Size _size(image.cols, image.rows);
+
     m_net.set_netphase(tiny_cnn::net_phase::test);
     vec_t vect = m_net.predict( __mat2vec_t(image, m_inputsize, m_irm, m_inputchannels) );
     cv::Mat _outmat;
@@ -203,6 +206,9 @@ cv::Mat CNNSegmentnet::predict(const cv::Mat &image) const
             break;
     }
     cv::normalize(_outmat, _outmat, 0.0, 1.0, cv::NORM_MINMAX);
+
+    // Restore input size with respect to ImageResizeMethod
+    _outmat = __restoreSize(_outmat, _size, m_irm);
     return _outmat;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -227,7 +233,10 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
     if((targetChannels > 0) && (targetChannels != _mat.channels()))
         switch(targetChannels) {
             case 1:
-                cv::cvtColor(_mat, _mat, CV_BGR2GRAY);
+                if(_mat.channels() == 3)
+                    cv::cvtColor(_mat, _mat, CV_BGR2GRAY);
+                else
+                    cv::cvtColor(_mat, _mat, CV_BGRA2GRAY);
                 break;
             case 3:
                 cv::cvtColor(_mat, _mat, CV_GRAY2BGR);
@@ -249,7 +258,7 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
     // Visualize
     cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);
     cv::imshow("CNNSegmentnet", _mat);
-    cv::waitKey(15);
+    cv::waitKey(11);
 
     // Construct vec_t image representation
     tiny_cnn::vec_t ovect;
@@ -292,7 +301,7 @@ cv::Mat __cropresize(const cv::Mat &input, const cv::Size size)
             cv::Mat croppedImg(input, roiRect);
             int interpolationMethod = 0;
             if(size.area() > roiRect.area())
-                interpolationMethod = CV_INTER_CUBIC;
+                interpolationMethod = CV_INTER_LANCZOS4;
             else
                 interpolationMethod = CV_INTER_AREA;
             cv::resize(croppedImg, output, size, 0, 0, interpolationMethod);
@@ -325,7 +334,7 @@ cv::Mat __propresize(const cv::Mat &input, const cv::Size size)
         if(roiRect.area() > 0)  {
             int interpolationMethod = 0;
             if(size.area() > roiRect.area())
-                interpolationMethod = CV_INTER_CUBIC;
+                interpolationMethod = CV_INTER_LANCZOS4;
             else
                 interpolationMethod = CV_INTER_AREA;
             cv::resize(output, output, size, 0, 0, interpolationMethod);
@@ -334,6 +343,15 @@ cv::Mat __propresize(const cv::Mat &input, const cv::Size size)
         output = input;
     }
     return output;
+}
+//-------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------
+cv::Mat __restoreSize (const cv::Mat &img, const cv::Size &dstSize, ImageResizeMethod resizeMethod)
+{
+    if(resizeMethod == ImageResizeMethod::PaddZeroAndResize)
+        return __cropresize(img, dstSize);
+    else
+        return __propresize(img, dstSize);
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -407,7 +425,7 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
 //------------------------------------------------------------------------------------------
 network<sequential> SegNetForLungs::__initNet(const cv::Size &size, int inchannels, int outchannels)
 {
-    int _kernels = 16;
+    int _kernels = 8;
     network<sequential> _net;
     _net << convolutional_layer<leaky_relu>(size.width, size.height, 3, inchannels, _kernels, padding::same)
          << convolutional_layer<leaky_relu>(size.width, size.height, 3, _kernels, _kernels, padding::same)

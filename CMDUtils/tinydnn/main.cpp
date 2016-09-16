@@ -110,6 +110,13 @@ int main(int argc, char *argv[])
         }
 
         cv::Mat _outmat = net.predict(img);
+
+        if(_outimgfilename != 0) {
+            cv::Mat _tempimg;
+            _outmat.convertTo(_tempimg, CV_8U, 255,0);
+            cv::imwrite(_outimgfilename, _tempimg);
+        }
+
         std::cout << "Press 'q' to quit from the app.";
         if(!_outmat.empty()) {
             while(true) {
