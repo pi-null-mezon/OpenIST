@@ -82,8 +82,8 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
     // Batch_size is a number of samples enrolled per parameters update
     adam _opt;
     // cross-entropy loss function for (multiple independent) binary classifications
-    // so if i have one output channel then cross_entropy is suitable, note however that
-    // in label data (segvec_t here) all values should be in [0.0; 1.0] interval
+    // So if i have one output channel then cross_entropy is suitable (it resolves output as probability measure if object presents or not at the particular position),
+    // note however that for proper learning the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
     if(m_outputchannels > 1) {
         m_net.fit<cross_entropy>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
                                         [&](){/*visualizeLastLayerActivation(m_net);*/},
@@ -258,7 +258,7 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
     // Visualize
     cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);
     cv::imshow("CNNSegmentnet", _mat);
-    cv::waitKey(11);
+    cv::waitKey(1);
 
     // Construct vec_t image representation
     tiny_cnn::vec_t ovect;
@@ -427,21 +427,26 @@ network<sequential> SegNetForLungs::__initNet(const cv::Size &size, int inchanne
 {
     int _kernels = 8;
     network<sequential> _net;
-    _net << convolutional_layer<leaky_relu>(size.width, size.height, 3, inchannels, _kernels, padding::same)
-         << convolutional_layer<leaky_relu>(size.width, size.height, 3, _kernels, _kernels, padding::same)
+    _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+         << convolutional_layer<relu>(size.width, size.height, 3, _kernels, _kernels, padding::same)
          << average_pooling_layer<identity>(size.width, size.height, _kernels, 2)
-            << convolutional_layer<leaky_relu>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
-            << convolutional_layer<leaky_relu>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
+            << convolutional_layer<relu>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
             << average_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
-               << convolutional_layer<leaky_relu>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
-               << convolutional_layer<leaky_relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
-               << convolutional_layer<leaky_relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<relu>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+               << average_pooling_layer<identity>(size.width/4, size.height/4, 4*_kernels, 2)
+                  << convolutional_layer<relu>(size.width/8, size.height/8, 3, 4*_kernels, 8*_kernels, padding::same)
+                  << convolutional_layer<relu>(size.width/8, size.height/8, 3, 8*_kernels, 4*_kernels, padding::same)
+               << average_unpooling_layer<identity>(size.width/8, size.height/8, 4*_kernels, 2)
+               << convolutional_layer<relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
             << average_unpooling_layer<identity>(size.width/4, size.height/4, 4*_kernels, 2)
-            << convolutional_layer<leaky_relu>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
-            << convolutional_layer<leaky_relu>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
+            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
+            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
          << average_unpooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
-         << convolutional_layer<leaky_relu>(size.width, size.height, 3, 2*_kernels, 2*_kernels, padding::same)
-         << convolutional_layer<leaky_relu>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
+         << convolutional_layer<relu>(size.width, size.height, 3, 2*_kernels, 2*_kernels, padding::same)
+         << convolutional_layer<relu>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
          << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
     return _net;
 }
