@@ -5,6 +5,7 @@
 # 	 
 #    using namespace tiny_dnn;
 #    ...
+#    int kernels = 8;
 #    network<sequential> _net;
 #    _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, _kernels, padding::same)
 #         << convolutional_layer<relu>(size.width, size.height, 3, _kernels, _kernels, padding::same)
