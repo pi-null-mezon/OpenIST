@@ -1,6 +1,6 @@
 # OpenIST
 
-A set of open tools for image segmentation with machine learning
+A set of open tools (C++ classes and cmd-utils) for image segmentation with machine learning
 
 Example of output results (manualy composed by GIMP)
 
@@ -8,4 +8,5 @@ Example of output results (manualy composed by GIMP)
 
 
 **Acknowledgements**
-Based on Qt, Opencv, DCMTK and tiny-dnn projects. Thank you guys, We do our world better!
+
+Project based on Qt, Opencv, DCMTK and tiny-dnn projects. Thank you guys!
