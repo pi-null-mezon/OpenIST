@@ -3,7 +3,7 @@ QT -= gui
 
 CONFIG += c++11
 
-TARGET = dsconstructor
+TARGET = dsconstructor # means Data Set Conctructor
 CONFIG += console
 CONFIG -= app_bundle
 

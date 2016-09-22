@@ -399,7 +399,7 @@ template<typename T>
 cv::Mat tinyimage2mat(const tiny_cnn::image<T> &_image)
 {
     std::vector<T> data = _image.data();
-    cv::Mat mat = cv::Mat((int)_image.height(), (int)_image.width(), CV_8UC1, &data[0]);
+    cv::Mat mat = cv::Mat(static_cast<int>(_image.height()), static_cast<int>(_image.width()), CV_8UC1, &data[0]);
     return mat.clone();
 }
 //-------------------------------------------------------------------------------------------------------
@@ -423,31 +423,40 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
 }
 //------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------------------
+SegNetForLungs::SegNetForLungs()
+{   }
+//------------------------------------------------------------------------------------------
 network<sequential> SegNetForLungs::__initNet(const cv::Size &size, int inchannels, int outchannels)
 {
-    int _kernels = 8;
+    cnn_size_t _kernels = 8,
+               width = static_cast<cnn_size_t>(size.width),
+               height = static_cast<cnn_size_t>(size.height);
+
     network<sequential> _net;
-    _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, _kernels, padding::same)
-         << convolutional_layer<relu>(size.width, size.height, 3, _kernels, _kernels, padding::same)
-         << average_pooling_layer<identity>(size.width, size.height, _kernels, 2)
-            << convolutional_layer<relu>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
-            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
-            << average_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
-               << convolutional_layer<relu>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
-               << convolutional_layer<relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
-               << average_pooling_layer<identity>(size.width/4, size.height/4, 4*_kernels, 2)
-                  << convolutional_layer<relu>(size.width/8, size.height/8, 3, 4*_kernels, 8*_kernels, padding::same)
-                  << convolutional_layer<relu>(size.width/8, size.height/8, 3, 8*_kernels, 4*_kernels, padding::same)
-               << average_unpooling_layer<identity>(size.width/8, size.height/8, 4*_kernels, 2)
-               << convolutional_layer<relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
-               << convolutional_layer<relu>(size.width/4, size.height/4, 3, 4*_kernels, 4*_kernels, padding::same)
-            << average_unpooling_layer<identity>(size.width/4, size.height/4, 4*_kernels, 2)
-            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 4*_kernels, 4*_kernels, padding::same)
-            << convolutional_layer<relu>(size.width/2, size.height/2, 3, 4*_kernels, 2*_kernels, padding::same)
-         << average_unpooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
-         << convolutional_layer<relu>(size.width, size.height, 3, 2*_kernels, 2*_kernels, padding::same)
-         << convolutional_layer<relu>(size.width, size.height, 3, 2*_kernels, _kernels, padding::same)
-         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
+    _net << convolutional_layer<relu>(width, height, 3, static_cast<cnn_size_t>(inchannels), _kernels, padding::same)
+         << convolutional_layer<relu>(width, height, 3, _kernels, _kernels, padding::same)
+         << average_pooling_layer<identity>(width, height, _kernels, 2)
+            << convolutional_layer<relu>(width/2, height/2, 3, _kernels, 2*_kernels, padding::same)
+            << convolutional_layer<relu>(width/2, height/2, 3, 2*_kernels, 2*_kernels, padding::same)
+            << average_pooling_layer<identity>(width/2, height/2, 2*_kernels, 2)
+               << convolutional_layer<relu>(width/4, height/4, 3, 2*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<relu>(width/4, height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+               << average_pooling_layer<identity>(width/4, height/4, 4*_kernels, 2)
+                  << convolutional_layer<relu>(width/8, height/8, 3, 4*_kernels, 8*_kernels, padding::same)
+                  << convolutional_layer<relu>(width/8, height/8, 3, 8*_kernels, 4*_kernels, padding::same)
+               << average_unpooling_layer<identity>(width/8, height/8, 4*_kernels, 2)
+               << convolutional_layer<relu>(width/4, height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+               << convolutional_layer<relu>(width/4, height/4, 3, 4*_kernels, 4*_kernels, padding::same)
+            << average_unpooling_layer<identity>(width/4, height/4, 4*_kernels, 2)
+            << convolutional_layer<relu>(width/2, height/2, 3, 4*_kernels, 4*_kernels, padding::same)
+            << convolutional_layer<relu>(width/2, height/2, 3, 4*_kernels, 2*_kernels, padding::same)
+         << average_unpooling_layer<identity>(width/2, height/2, 2*_kernels, 2)
+         << convolutional_layer<relu>(width, height, 3, 2*_kernels, 2*_kernels, padding::same)
+         << convolutional_layer<relu>(width, height, 3, 2*_kernels, _kernels, padding::same)
+         << convolutional_layer<softmax>(width, height, 3, _kernels, static_cast<cnn_size_t>(outchannels), padding::same);
     return _net;
 }
 //-----------------------------------------------------------------------------------------

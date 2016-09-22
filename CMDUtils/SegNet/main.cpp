@@ -56,8 +56,8 @@ int main(int argc, char *argv[])
                              "\n -o[filename] - name for the output file with trained network"
                              "\n -e[int] - number of training epoch (ref. to tiny-dnn doc.)"
                              "\n -m[int] - minibatch size for training (ref. to tiny-dnn doc.)"
-                             "\n -c[int] - to what cols training images should be resized"
-                             "\n -r[int] - to what rows training images should be resized"
+                             "\n -c[int] - to what cols training images should be resized (default %1)"
+                             "\n -r[int] - to what rows training images should be resized (default %2)"
                              "\n -x[int] - desired number of input channels (0 means same as in source)"
                              "\n -y[int] - desired number of output channels (0 means same as in source)"
                              "\n To segment image by CNN:"
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
                              "\n -s[filename] - image for segmentation"
                              "\n -a[filename] - where to save segmented image"
                              "\nAlex A. Taranov, based on Qt, Opencv and tiny-dnn");
-            std::cout << helpstr.toLocal8Bit().constData();
+            std::cout << helpstr.arg(QString::number(_width),QString::number(_height)).toLocal8Bit().constData();
             return 0;
         }
     }

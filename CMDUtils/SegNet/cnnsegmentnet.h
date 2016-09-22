@@ -138,7 +138,7 @@ cv::Mat __restoreSize(const cv::Mat &img, const cv::Size &dstSize, ImageResizeMe
 class SegNetForLungs: public CNNSegmentnet
 {
 public:
-    SegNetForLungs(){}
+    SegNetForLungs();
 
 private:
     tiny_cnn::network<tiny_cnn::sequential> __initNet(const cv::Size &size, int inchannels, int outchannels) override;

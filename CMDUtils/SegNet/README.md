@@ -1,4 +1,5 @@
-**cnnsegment** is an utility for network training
+**SegNet** is an utility, based on tiny-dnn, for SegNet-like architecture CNN training,
+but it also support single image segmentation as testing option
 
 "Comand line utility for the image segmentation by means of CNN"
 "\n To train CNN use:"
