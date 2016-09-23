@@ -51,7 +51,7 @@ public:
 
 private:
     void __train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch, bool preservedata);
-    virtual tiny_cnn::network<tiny_cnn::sequential> __initNet(const cv::Size &size, int inchannels, int outcahnnels);
+    virtual tiny_cnn::network<tiny_cnn::sequential> __initNet(const cv::Size &size, int inchannels, int outchannels);
     void __mosaic(const cv::Size &_msize, const cv::Mat &_rawimg, const cv::Mat &_labelimg, std::vector<vec_t> &_vparts, std::vector<label_t> &_vmarks);
     label_t __getLabel(const cv::Mat &_img);
 

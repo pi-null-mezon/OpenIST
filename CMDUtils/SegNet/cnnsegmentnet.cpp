@@ -78,21 +78,14 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
 
     if(preservedata == false)
         m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
-
-    // Batch_size is a number of samples enrolled per parameters update
+    
     adam _opt;
-    // cross-entropy loss function for (multiple independent) binary classifications
-    // So if i have one output channel then cross_entropy is suitable (it resolves output as probability measure if object presents or not at the particular position),
-    // note however that for proper learning the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
-    if(m_outputchannels > 1) {
-        m_net.fit<cross_entropy>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
-                                        [&](){/*visualizeLastLayerActivation(m_net);*/},
-                                        [&](){visualizeLastLayerActivation(m_net);});
-    } else {
-        m_net.fit<cross_entropy_multiclass>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
-                                        [&](){/*visualizeLastLayerActivation(m_net);*/},
-                                        [&](){visualizeLastLayerActivation(m_net);});
-    }
+	    
+    // Note that for right learning by the fit() function, the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
+	m_net.fit<cross_entropy>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
+									[&](){/*visualizeLastLayerActivation(m_net);*/},
+									[&](){visualizeLastLayerActivation(m_net);});
+
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------

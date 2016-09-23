@@ -12,16 +12,16 @@ CNNConvSegmentnet::~CNNConvSegmentnet()
 {}
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-network<sequential> CNNConvSegmentnet::__initNet(const cv::Size &size, int inchannels, int outcahnnels)
+network<sequential> CNNConvSegmentnet::__initNet(const cv::Size &size, int inchannels, int outchannels)
 {  
     network<sequential> _net;
     cnn_size_t _width = static_cast<cnn_size_t>(size.width),
                _height = static_cast<cnn_size_t>(size.height),
-               _kernels = 11;
+               _kernels = 16;
 
-    _net << convolutional_layer<relu>(_width, _height, 3, static_cast<cnn_size_t>(inchannels), _kernels, padding::same)
-         << convolutional_layer<relu>(_width, _height, 3, _kernels, 2*_kernels, padding::same)
-         << fully_connected_layer<softmax>(_width*_height*2*_kernels, 1);
+    _net << convolutional_layer<identity>(_width, _height, 3, static_cast<cnn_size_t>(inchannels), _kernels)
+         << fully_connected_layer<relu>((_width-2)*(_height-2)*_kernels, _kernels)
+         << fully_connected_layer<softmax>(_kernels, 2);
 
     return _net;
 }
@@ -40,11 +40,11 @@ void CNNConvSegmentnet::update(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArr
 void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch, bool preservedata)
 {
     if(_vraw.kind() != cv::_InputArray::STD_VECTOR_MAT && _vlabel.kind() != cv::_InputArray::STD_VECTOR_MAT) {
-        cv::String error_message = "The images are expected as InputArray::STD_VECTOR_MAT (a std::vector<Mat>).";
+        cv::String error_message = "CNNConvSegmentnet! - > The images are expected as InputArray::STD_VECTOR_MAT (a std::vector<Mat>).";
         CV_Error(cv::Error::StsBadArg, error_message);
     }
     if(_vraw.total() == 0 || _vlabel.total() == 0) {
-        cv::String error_message = cv::format("Empty training data was given. You'll need more than one sample to learn a model.");
+        cv::String error_message = cv::format("CNNConvSegmentnet! - > Empty training data was given. You'll need more than one sample to learn a model.");
         CV_Error(cv::Error::StsUnsupportedFormat, error_message);
     }
 
@@ -55,7 +55,7 @@ void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfAr
 
     // Check if data is well-aligned
     if(_vmatrawimg.size() != _vlabelimg.size()) {
-        cv::String error_message = cv::format("The number of samples (src) must be equal to the number of the labels. Was len(samples)=%d, len(labels)=%d.", _vmatrawimg.size(), _vlabelimg.size());
+        cv::String error_message = cv::format("CNNConvSegmentnet! - > The number of samples (src) must be equal to the number of the labels. Was len(samples)=%d, len(labels)=%d.", _vmatrawimg.size(), _vlabelimg.size());
         CV_Error(cv::Error::StsBadArg, error_message);
     }
 
@@ -75,27 +75,38 @@ void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfAr
     if(preservedata == false)
         m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
 
+    /*for(size_t i = 0; i < srcvec_t.size(); i++) {
+        std::cout << std::endl << srclabel_t[i];
+        for(size_t j = 0; j < srcvec_t[i].size(); j++) {
+            std::cout << j << ":" << srcvec_t[i][j] << " ";
+        }
+
+    }*/
+
     // Batch_size is a number of samples enrolled per parameters update
     adam _opt;
     m_net.train<cross_entropy>(_opt, srcvec_t, srclabel_t, static_cast<cnn_size_t>(_minibatch), _epoch,
-                                        [](){},
+                                        [&](){ /*visualizeActivations(m_net);*/},
                                         [&](){
+
                                                 static int _epoch = 0;
-                                                std::cout << "\nEpoch " << ++_epoch << " last";
+                                                std::cout << "\nEpoch " << ++_epoch << " has been passed";
                                               });
 }
 //-------------------------------------------------------------------------------------------------------
 void CNNConvSegmentnet::__mosaic(const cv::Size &_msize, const cv::Mat &_rawimg, const cv::Mat &_labelimg, std::vector<vec_t> &_vparts, std::vector<label_t> &_vmarks)
 {
+    if(_rawimg.size() != _labelimg.size()) {
+        cv::String error_message = cv::format("CNNConvSegmentnet! - > Raw and Label images should have equal sizes but does not have!");
+        CV_Error(cv::Error::StsBadArg, error_message);
+    }
 
-    cv::Rect _roirect(0,0,_msize.width,_msize.height);
     cv::Mat _rawmat, _labelmat;
     for(int y = 0 ; y < _rawimg.rows - _msize.height; y++) {
         for(int x = 0; x < _rawimg.cols - _msize.width; x++) {
-            cv::Rect _temproirect = _roirect + cv::Point(x,y);
-            _rawmat = _rawimg( _temproirect );
-            _labelmat = _labelimg( _temproirect );
-
+            cv::Rect _roirect = cv::Rect(0,0,_msize.width,_msize.height)+cv::Point(x,y);
+            _rawmat = _rawimg( _roirect );
+            _labelmat = _labelimg( _roirect );
             _vparts.push_back( __mat2vec_t(_rawmat, m_inputchannels) );
             _vmarks.push_back( __getLabel(_labelmat) );
         }
@@ -210,8 +221,8 @@ cv::Mat CNNConvSegmentnet::predict(const cv::Mat &image) const
     for(int y = 0; y < image.rows - m_inputsize.height; y++) {
         for(int x = 0; x < image.cols - m_inputsize.width; x++) {
             cv::Mat _tempmat = image(_roirect + cv::Point(x,y));
-            label_t _prediction = m_net.predict_label(__mat2vec_t(_tempmat, m_inputchannels));
-            _output.at<unsigned char>(x,y) = static_cast<unsigned char>(255*_prediction);
+            vec_t _vp = m_net.predict( __mat2vec_t(_tempmat, m_inputchannels) );
+            _output.at<unsigned char>(y,x) = static_cast<unsigned char>(_vp[1]*255);
         }
     }
     return _output;
