@@ -20,8 +20,7 @@ network<sequential> CNNConvSegmentnet::__initNet(const cv::Size &size, int incha
                _kernels = 16;
 
     _net << convolutional_layer<identity>(_width, _height, 3, static_cast<cnn_size_t>(inchannels), _kernels)
-         << fully_connected_layer<relu>((_width-2)*(_height-2)*_kernels, _kernels)
-         << fully_connected_layer<softmax>(_kernels, 2);
+         << fully_connected_layer<softmax>((_width-2)*(_height-2)*_kernels, 2);
 
     return _net;
 }
