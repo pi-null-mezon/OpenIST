@@ -82,7 +82,7 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
     adam _opt;
 	    
     // Note that for right learning by the fit() function, the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
-	m_net.fit<cross_entropy>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
+    m_net.fit<cross_entropy_multiclass>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
 									[&](){/*visualizeLastLayerActivation(m_net);*/},
 									[&](){visualizeLastLayerActivation(m_net);});
 

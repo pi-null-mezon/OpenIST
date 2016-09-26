@@ -1,6 +1,8 @@
 #include "cnnconvsegmentnet.h"
 #include <opencv2/highgui.hpp>
 
+#include <QDebug>
+
 namespace segnet {
 
 using namespace activation;
@@ -17,10 +19,10 @@ network<sequential> CNNConvSegmentnet::__initNet(const cv::Size &size, int incha
     network<sequential> _net;
     cnn_size_t _width = static_cast<cnn_size_t>(size.width),
                _height = static_cast<cnn_size_t>(size.height),
-               _kernels = 16;
+               _kernels = 2;
 
-    _net << convolutional_layer<identity>(_width, _height, 3, static_cast<cnn_size_t>(inchannels), _kernels)
-         << fully_connected_layer<softmax>((_width-2)*(_height-2)*_kernels, 2);
+    _net << convolutional_layer<relu>(_width, _height, 5, static_cast<cnn_size_t>(inchannels), _kernels)
+         << fully_connected_layer<softmax>((_width-4)*(_height-4) * _kernels, 2);
 
     return _net;
 }
@@ -71,25 +73,22 @@ void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfAr
     // Shuffle input pairs in random order, it should prevent overfitting when training samples is taken from different sources
     __random_shuffle(srcvec_t.begin(),srcvec_t.end(),srclabel_t.begin(),srclabel_t.end());
 
+    // Unskew dataset (i.e.: make subsampling with equal number of each class volume)
+    std::vector<vec_t> _rawimgs;
+    std::vector<label_t> _labels;
+    __unskew(srcvec_t,srclabel_t,_rawimgs,_labels);
+
     if(preservedata == false)
         m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
 
-    /*for(size_t i = 0; i < srcvec_t.size(); i++) {
-        std::cout << std::endl << srclabel_t[i];
-        for(size_t j = 0; j < srcvec_t[i].size(); j++) {
-            std::cout << j << ":" << srcvec_t[i][j] << " ";
-        }
-
-    }*/
 
     // Batch_size is a number of samples enrolled per parameters update
     adam _opt;
-    m_net.train<cross_entropy>(_opt, srcvec_t, srclabel_t, static_cast<cnn_size_t>(_minibatch), _epoch,
-                                        [&](){ /*visualizeActivations(m_net);*/},
+    m_net.train<cross_entropy>(_opt, _rawimgs, _labels, static_cast<cnn_size_t>(_minibatch), _epoch,
+                                        [](){ /*visualizeActivations(m_net);*/},
                                         [&](){
-
-                                                static int _epoch = 0;
-                                                std::cout << "\nEpoch " << ++_epoch << " has been passed";
+                                                static int ep = 0;
+                                                std::cout << "\nEpoch " << ++ep << " / " << _epoch << " has been passed";
                                               });
 }
 //-------------------------------------------------------------------------------------------------------
@@ -100,12 +99,14 @@ void CNNConvSegmentnet::__mosaic(const cv::Size &_msize, const cv::Mat &_rawimg,
         CV_Error(cv::Error::StsBadArg, error_message);
     }
 
-    cv::Mat _rawmat, _labelmat;
     for(int y = 0 ; y < _rawimg.rows - _msize.height; y++) {
         for(int x = 0; x < _rawimg.cols - _msize.width; x++) {
+
             cv::Rect _roirect = cv::Rect(0,0,_msize.width,_msize.height)+cv::Point(x,y);
-            _rawmat = _rawimg( _roirect );
-            _labelmat = _labelimg( _roirect );
+
+            cv::Mat _rawmat = _rawimg( _roirect );
+            cv::Mat _labelmat = _labelimg( _roirect );
+
             _vparts.push_back( __mat2vec_t(_rawmat, m_inputchannels) );
             _vmarks.push_back( __getLabel(_labelmat) );
         }
@@ -298,7 +299,6 @@ void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net)
         }
     }
     cv::waitKey(1);
-
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -329,7 +329,7 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
     std::iterator_traits<Iterator1>::difference_type i, v1length = v1last - v1first;
     std::iterator_traits<Iterator2>::difference_type v2length = v2last - v2first;
     if(v1length != v2length) {
-        CV_Error(cv::Error::StsBadArg, "Error in __random_shuffle(): input vectors have different sizes");
+        CV_Error(cv::Error::StsBadArg, "Error in __random_shuffle(): input vectors have different sizes!");
         return;
     } else {
         int pos;
@@ -342,6 +342,41 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
 }
 //------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------
+template<typename T1, typename T2>
+void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel)
+{
+    if(vraw.size() != vlabel.size()) {
+        CV_Error(cv::Error::StsBadArg, "Error in __unskew(): input vectors have different sizes!");
+        return;
+    }
+
+    std::vector<T2> _templabel = vlabel;
+    std::sort(_templabel.begin(), _templabel.end());
+    auto _last = std::unique(_templabel.begin(), _templabel.end());
+
+    size_t uniquelabels = _last - _templabel.begin();
+
+    std::vector<bool> vlogic;
+    for(size_t i = 0; i < uniquelabels; i++)
+        vlogic.push_back(false);
+
+    for(size_t i = 0; i < vraw.size(); i++) {
+
+        for(size_t j = 0; j < vlogic.size(); j++) {
+            if((vlabel[i] == j) && (vlogic[j] == false)) {
+                vlogic[j] = true;
+                _outlabel.push_back(vlabel[i]);
+                _outraw.push_back(vraw[i]);
+            }
+        }
+        bool check = true;
+        for(size_t j = 0; j < vlogic.size(); j++)
+              check &= vlogic[j];
+        if( check == true )
+            for(size_t j = 0; j < vlogic.size(); j++)
+                  vlogic[j] = false;
+    }
+}
 
 } // end of the segnet namespace
 

@@ -101,6 +101,8 @@ template <typename Iterator1, typename Iterator2>
  */
 void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, Iterator2 v2last);
 
+template<typename T1, typename T2>
+void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel);
 
 } // end of the segnet namespace
 
