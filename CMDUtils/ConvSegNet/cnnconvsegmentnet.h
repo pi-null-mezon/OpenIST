@@ -104,6 +104,9 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
 template<typename T1, typename T2>
 void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel);
 
+template<typename T>
+void __subsetdata(const std::vector<T> &_vin, int _mod, std::vector<T> &_vbig, std::vector<T> &_vsmall);
+
 } // end of the segnet namespace
 
 #endif // CNNCONVSEGMENTNETH

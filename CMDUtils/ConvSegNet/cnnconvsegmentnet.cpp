@@ -19,10 +19,11 @@ network<sequential> CNNConvSegmentnet::__initNet(const cv::Size &size, int incha
     network<sequential> _net;
     cnn_size_t _width = static_cast<cnn_size_t>(size.width),
                _height = static_cast<cnn_size_t>(size.height),
-               _kernels = 2;
+               _kernels = 10;
 
     _net << convolutional_layer<relu>(_width, _height, 5, static_cast<cnn_size_t>(inchannels), _kernels)
-         << fully_connected_layer<softmax>((_width-4)*(_height-4) * _kernels, 2);
+         << dropout_layer((_width-4)*(_height-4)*_kernels, 0.5)
+         << fully_connected_layer<softmax>((_width-4)*(_height-4)*_kernels, 2);
 
     return _net;
 }
@@ -77,18 +78,32 @@ void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfAr
     std::vector<vec_t> _rawimgs;
     std::vector<label_t> _labels;
     __unskew(srcvec_t,srclabel_t,_rawimgs,_labels);
+    // clear unused memory
+    srcvec_t.clear();
+    srclabel_t.clear();
+    // Get test subset
+    std::vector<vec_t> _raw2train, _raw2test;
+    std::vector<label_t> _lbl2train, _lbl2test;
+    int mod = 11;
+    __subsetdata(_rawimgs, mod, _raw2train, _raw2test);
+    __subsetdata(_labels, mod, _lbl2train, _lbl2test);
+    // clear unused memory
+    _rawimgs.clear();
+    _labels.clear();
 
     if(preservedata == false)
         m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
 
-
     // Batch_size is a number of samples enrolled per parameters update
     adam _opt;
-    m_net.train<cross_entropy>(_opt, _rawimgs, _labels, static_cast<cnn_size_t>(_minibatch), _epoch,
+    m_net.train<cross_entropy>(_opt, _raw2train, _lbl2train, static_cast<cnn_size_t>(_minibatch), _epoch,
                                         [](){ /*visualizeActivations(m_net);*/},
                                         [&](){
                                                 static int ep = 0;
-                                                std::cout << "\nEpoch " << ++ep << " / " << _epoch << " has been passed";
+                                                if(ep % 10 == 0) {
+                                                    tiny_cnn::result _result = m_net.test(_raw2test, _lbl2test);
+                                                    std::cout << "\nEpoch " << ep << " / " << _epoch << " has been passed (accuracy: " << _result.accuracy() << ")";
+                                                } ep++;
                                               });
 }
 //-------------------------------------------------------------------------------------------------------
@@ -371,10 +386,21 @@ void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::v
         }
         bool check = true;
         for(size_t j = 0; j < vlogic.size(); j++)
-              check &= vlogic[j];
+              check = check && vlogic[j];
         if( check == true )
             for(size_t j = 0; j < vlogic.size(); j++)
                   vlogic[j] = false;
+    }
+}
+
+template<typename T>
+void __subsetdata(const std::vector<T> &_vin, int _mod, std::vector<T> &_vbig, std::vector<T> &_vsmall)
+{
+    for(size_t i = 0; i < _vin.size(); i++) {
+        if((i % _mod) == 0)
+            _vsmall.push_back(_vin[i]);
+        else
+            _vbig.push_back(_vin[i]);
     }
 }
 

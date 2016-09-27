@@ -3,7 +3,7 @@ QT -= gui
 
 CONFIG += c++11
 
-TARGET =  ConvSegNet
+TARGET =  Cnnsegnet
 CONFIG += console
 CONFIG -= app_bundle
 
