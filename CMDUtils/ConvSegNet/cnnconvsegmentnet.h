@@ -11,7 +11,7 @@ namespace segnet {
 using namespace tiny_cnn;
 /**
  * @brief The base abstract class for convolutional segment networks
- * @note Derived classes should override __initNet() method
+ * @note Derived classes should override __createNet() method
  */
 class CNNConvSegmentnet
 {
@@ -49,11 +49,16 @@ public:
 
     cv::Mat predict(const cv::Mat &image) const;
 
+protected:
+    // It is caller responsibility to provide _weights vector with appropriate number of values
+    void initNet(const cv::Size &size, const int inchannels, const int outchannels, const tiny_cnn::float_t *_weights);
+
 private:
     void __train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch, bool preservedata);
-    virtual tiny_cnn::network<tiny_cnn::sequential> __initNet(const cv::Size &size, int inchannels, int outchannels);
+    virtual tiny_cnn::network<tiny_cnn::sequential> __createNet(const cv::Size &size, int inchannels, int outchannels);
     void __mosaic(const cv::Size &_msize, const cv::Mat &_rawimg, const cv::Mat &_labelimg, std::vector<vec_t> &_vparts, std::vector<label_t> &_vmarks);
     label_t __getLabel(const cv::Mat &_img);
+
 
     mutable tiny_cnn::network<tiny_cnn::sequential> m_net;
     cv::Size m_inputsize;
@@ -100,12 +105,28 @@ template <typename Iterator1, typename Iterator2>
  * @param v2last - end of the second vector
  */
 void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, Iterator2 v2last);
-
+/**
+ * Filters data in a particular way to make equal (or almost equal, i.e. +-1) size of each label subset
+ */
 template<typename T1, typename T2>
 void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel);
-
+/**
+ * Divides data into two subset for training and for validation purposes
+ */
 template<typename T>
 void __subsetdata(const std::vector<T> &_vin, int _mod, std::vector<T> &_vbig, std::vector<T> &_vsmall);
+
+
+
+
+class TextSegmentConvNet : public CNNConvSegmentnet
+{
+public:
+    TextSegmentConvNet();
+    void initPretrainedWeights();
+private:    
+    tiny_cnn::network<tiny_cnn::sequential> __createNet(const cv::Size &size, int inchannels, int outchannels) override;
+};
 
 } // end of the segnet namespace
 

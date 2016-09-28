@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     #endif
 
     const char *_indirname = 0, *_outcnnfilename = 0;
-    int _epoch = 20, _minibatch = 32, _width = 7, _height = 7, _inchannels = 0, _outchannels = 0;
+    int _epoch = 20, _minibatch = 64, _width = 7, _height = 7, _inchannels = 0, _outchannels = 0;
     const char *_incnnfilename = 0, *_inimgfilename = 0, *_outimgfilename = 0;
     while(--argc > 0 && (*++argv)[0] == '-') {
         char _opt = *++argv[0];
@@ -77,14 +77,26 @@ int main(int argc, char *argv[])
         QImageFinder::readImagesFromPath(_indirname, vimgs, vlbls);
         std::cout << "Found " << vimgs.size() << " images and " << vlbls.size() << " segmented images\n";
 
-        segnet::CNNConvSegmentnet net;
+        segnet::TextSegmentConvNet net;
         net.setInputChannels(_inchannels);
         net.setOutputChannels(_outchannels);
         net.setInputSize(cv::Size(_width, _height));
 
-        std::cout << "Training started...\n";
-        net.train(vimgs, vlbls, _epoch, _minibatch);
-        std::cout << "\nTraining finished.\n";
+        if(_incnnfilename != 0) {
+            std::cout << "Update option is applied. Update started...\n";
+            if(net.load(_incnnfilename))
+                std::cout << "Network loaded from " << _incnnfilename << "\n";
+            else {
+                std::cout << "Can not load network from file! Abort... " << _incnnfilename;
+                return -1;
+            }
+            net.update(vimgs, vlbls, _epoch, _minibatch);
+            std::cout << "\nUpdate finished.\n";
+        } else {
+            std::cout << "Training started...\n";
+            net.train(vimgs, vlbls, _epoch, _minibatch);
+            std::cout << "\nTraining finished.\n";
+        }
 
         if(_outcnnfilename != 0) {
             net.save(_outcnnfilename);
@@ -95,11 +107,11 @@ int main(int argc, char *argv[])
     if(_incnnfilename != 0 && _inimgfilename != 0) {
         std::cout << "Prediction mode selected\n";
 
-        segnet::CNNConvSegmentnet net;
+        segnet::TextSegmentConvNet net;
         if(net.load(_incnnfilename))
             std::cout << "Network loaded from " << _incnnfilename << "\n";
         else {
-            std::cout << "Can not load network from file " << _incnnfilename;
+            std::cout << "Can not load network from file! Abort... " << _incnnfilename;
             return -1;
         }
 
