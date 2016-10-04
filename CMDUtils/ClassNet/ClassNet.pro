@@ -3,7 +3,7 @@ QT -= gui
 
 CONFIG += c++11
 
-TARGET =  ConvSegNet
+TARGET = ClassNet
 CONFIG += console
 CONFIG -= app_bundle
 
@@ -11,11 +11,11 @@ TEMPLATE = app
 
 SOURCES += main.cpp \
            qimagefinder.cpp \
-           cnnconvsegmentnet.cpp
+           cnnclassnet.cpp
 
 HEADERS += \
            qimagefinder.h \
-           cnnconvsegmentnet.h
+           cnnclassnet.h
 
 OPENIST_PATH = C:/Programming/OpenIST		   
 		   

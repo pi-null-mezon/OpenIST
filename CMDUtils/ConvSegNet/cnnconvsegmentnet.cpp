@@ -427,14 +427,18 @@ void __subsetdata(const std::vector<T> &_vin, int _mod, std::vector<T> &_vbig, s
 }
 
 //-------------------------------------------------------------------------------------------------------------------------
-TextSegmentConvNet::TextSegmentConvNet()
-{}
-//-------------------------------------------------------------------------------------------------------------------------
-void TextSegmentConvNet::initPretrainedWeights()
+TextSegmentConvNet::TextSegmentConvNet(bool pretrained)
 {
-    // Pretrained weights vector
-    tiny_cnn::float_t _weights[] = {
-        -1.6169357190442144e+00, -1.0725335296983469e+00,
+    if(pretrained) {
+        setInputSize( cv::Size(7,7) );
+        setInputChannels(1);
+        setOutputChannels(2);
+        initNet(getInputSize(), getInputChannels(), getOutputChannels(), v_pretrainedweights);
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------------
+tiny_cnn::float_t TextSegmentConvNet::v_pretrainedweights[] = {
+            -1.6169357190442144e+00, -1.0725335296983469e+00,
             -1.1957506751744684e+00, 7.1865706019004194e-01,
             9.9373217319440155e-01, -1.6841600781431854e+00,
             3.7870064958456329e-01, 5.6470341349307440e-01,
@@ -611,13 +615,6 @@ void TextSegmentConvNet::initPretrainedWeights()
             -1.5682239997850950e-01, 5.7104935149531820e-02,
             -3.0942102535616850e-01, 2.7898917227120251e-01,
             2.7025175578780036e-01, -2.7025175578779981e-01 };
-    // Load weights
-    setInputSize( cv::Size(7,7) );
-    setInputChannels(1);
-    setOutputChannels(2);
-    initNet(getInputSize(), getInputChannels(), getOutputChannels() ,_weights);
-
-}
 //-------------------------------------------------------------------------------------------------------------------------
 tiny_cnn::network<tiny_cnn::sequential> TextSegmentConvNet::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {

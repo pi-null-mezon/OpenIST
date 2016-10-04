@@ -1,5 +1,4 @@
-**SegNet** is an utility, based on tiny-dnn, for SegNet-like architecture CNN training,
-but it also support single image segmentation as testing option
+**SegNet** is an utility, based on tiny-dnn and Opencv, for SegNet-like architecture CNN training and testing.
 
 "Comand line utility for the image segmentation by means of CNN"
 "\n To train CNN use:"
