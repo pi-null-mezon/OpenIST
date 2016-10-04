@@ -1,8 +1,6 @@
 #include "cnnconvsegmentnet.h"
 #include <opencv2/highgui.hpp>
 
-#include <QDebug>
-
 namespace segnet {
 
 using namespace activation;
@@ -15,11 +13,7 @@ CNNConvSegmentnet::~CNNConvSegmentnet()
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
 network<sequential> CNNConvSegmentnet::__createNet(const cv::Size &size, int inchannels, int outchannels)
-{  
-    Q_UNUSED(size);
-    Q_UNUSED(inchannels);
-    Q_UNUSED(outchannels);
-
+{
     network<sequential> _net;
     return _net;
 }

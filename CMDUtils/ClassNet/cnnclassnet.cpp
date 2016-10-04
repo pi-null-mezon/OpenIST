@@ -1,7 +1,7 @@
 #include "cnnclassnet.h"
 #include <opencv2/highgui.hpp>
 
-namespace segnet {
+#include <QDebug>
 
 using namespace activation;
 //-------------------------------------------------------------------------------------------------------
@@ -14,80 +14,97 @@ CNNClassificator::~CNNClassificator()
 //-------------------------------------------------------------------------------------------------------
 network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {  
-    Q_UNUSED(size);
-    Q_UNUSED(inchannels);
-    Q_UNUSED(outchannels);
     network<sequential> _net;
+
+    _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, 16, tiny_cnn::padding::same)
+         << convolutional_layer<relu>(size.width, size.height, 3, 16, 16, tiny_cnn::padding::same)
+         << average_pooling_layer<identity>(size.width, size.height, 16, 2)
+         << dropout_layer(size.width/2*size.height/2*16, 0.5)
+         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 16, 32, tiny_cnn::padding::same)
+         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 32, 32, tiny_cnn::padding::same)
+         << average_pooling_layer<identity>(size.width/2, size.height/2, 32, 2)
+         << dropout_layer(size.width/4*size.height/4*32, 0.5)
+         << fully_connected_layer<softmax>(size.width/4 * size.height/4 * 32, outchannels);
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void CNNClassificator::train(cv::InputArrayOfArrays _vraw, cv::InputArray _vlabel, int _epoch, int _minibatch)
+void CNNClassificator::train(cv::InputArrayOfArrays _vraw, const std::vector<label_t> &_vlabel, int _epoch, int _minibatch, int _t2cprop)
 {
-    __train(_vraw, _vlabel, _epoch, _minibatch, false);
+    __train(_vraw, _vlabel, _epoch, _minibatch, _t2cprop, false);
 }
-void CNNClassificator::update(cv::InputArrayOfArrays _vraw, cv::InputArray _vlabel, int _epoch, int _minibatch)
+void CNNClassificator::update(cv::InputArrayOfArrays _vraw, const std::vector<label_t> &_vlabel, int _epoch, int _minibatch, int _t2cprop)
 {
-    __train(_vraw, _vlabel, _epoch, _minibatch, true);
+    __train(_vraw, _vlabel, _epoch, _minibatch, _t2cprop, true);
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, cv::InputArray _vlabel, int _epoch, int _minibatch, bool preservedata)
+void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<label_t> &_vlabel, int _epoch, int _minibatch, int _t2cprop, bool preservedata)
 {
-    if(_vraw.kind() != cv::_InputArray::STD_VECTOR_MAT && _vlabel.kind() != cv::_InputArray::STD_VECTOR) {
-        cv::String error_message = "CNNClassificator warning! The images are expected as InputArray::STD_VECTOR_MAT";
+    if(_vraw.kind() != cv::_InputArray::STD_VECTOR_MAT) {
+        cv::String error_message = "CNNClassificator warning! The images are expected as InputArray::STD_VECTOR_MAT!";
         CV_Error(cv::Error::StsBadArg, error_message);
     }
-    if(_vraw.total() == 0 || _vlabel.total() == 0) {
-        cv::String error_message = cv::format("CNNClassificator warning! Empty training data was given. You'll need more than one sample to learn a model.");
+    if(_vraw.total() == 0 || _vlabel.size() == 0) {
+        cv::String error_message = cv::format("CNNClassificator warning! Empty training data was given!");
         CV_Error(cv::Error::StsUnsupportedFormat, error_message);
     }
 
-    // TO DO Get the vector of visual images
+    // Get the vector of visual images
     std::vector<cv::Mat> srcmats;
-    std::vector<vec_t> srcvec_t;
-    _vvis.getMatVector(srcmats);
+    std::vector<tiny_cnn::vec_t> srcvec_t;
+    _vraw.getMatVector(srcmats);
     for(size_t it = 0; it < srcmats.size(); it++) {
         if(it == 0) {
             if(m_inputchannels == 0)
                 m_inputchannels = (srcmats[it]).channels();
-            if(m_inputsize.area() == 0) {
+            if(m_inputsize.area() == 0)
                 setInputSize(cv::Size((srcmats[it]).cols,(srcmats[it]).rows));
-            }
         }
-
         srcvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_irm, m_inputchannels) );
     }
 
-    // Get the vector of segmented images
-    srcmats.clear();
-    _vseg.getMatVector(srcmats);
-    std::vector<vec_t> segvec_t;
-    for(size_t it = 0; it < srcmats.size(); it++) {
-        if(it == 0 && m_outputchannels == 0)
-            m_outputchannels = (srcmats[it]).channels();
-
-        segvec_t.push_back( __mat2vec_t(srcmats[it], m_inputsize, m_irm, m_outputchannels, 0.0, 1.0) );
-    }
-
-    // Check if data is well-aligned
-    if(segvec_t.size() != srcvec_t.size()) {
-        cv::String error_message = cv::format("The number of samples (src) must be equal to the number of the labels. Was len(samples)=%d, len(labels)=%d.", srcvec_t.size(), segvec_t.size());
-        CV_Error(cv::Error::StsBadArg, error_message);
-    }   
+    // Get the vector of labels
+    std::vector<label_t> srclabels(_vlabel.begin(), _vlabel.end());
 
     // Shuffle input pairs in random order, it should prevent overfitting when training samples is taken from different sources
-    __random_shuffle(srcvec_t.begin(),srcvec_t.end(),segvec_t.begin(),segvec_t.end());
+    __random_shuffle(srcvec_t.begin(),srcvec_t.end(),srclabels.begin(),srclabels.end());
+    std::vector<label_t> ulbls, tlbls, clbls;
+    std::vector<tiny_cnn::vec_t> uvects, tvects, cvects;
+    // Unskew data
+    size_t _uniquelables = 0;
+    __unskew(srcvec_t,srclabels, uvects, ulbls, &_uniquelables);
+    setOutputChannels(static_cast<int>(_uniquelables));
+    // Clear memory
+    srcvec_t.clear();
+    srclabels.clear();
+    // Divide samples into training and control sets
+    __subsetdata(ulbls, _t2cprop, tlbls, clbls);
+    __subsetdata(uvects, _t2cprop, tvects, cvects);
+    // Clear memory
+    ulbls.clear();
+    uvects.clear();
+
+    qWarning("Unique labels in dataset %d, %d samples has been selected for training and %d for control", _uniquelables, tvects.size(), cvects.size());
+    for(int i=0; i < tlbls.size(); i++) {
+        qWarning("%d", tlbls[i]);
+    }
 
     if(preservedata == false)
-        m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
+        m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
     
-    adam _opt;
-	    
+    adam _opt;	    
     // Note that for right learning by the fit() function, the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
-    m_net.fit<cross_entropy_multiclass>(_opt, srcvec_t, segvec_t, _minibatch, _epoch,
-									[&](){/*visualizeLastLayerActivation(m_net);*/},
-									[&](){visualizeLastLayerActivation(m_net);});
+    m_net.train<cross_entropy_multiclass>(_opt, tvects, tlbls, static_cast<size_t>(_minibatch), _epoch,
+                                    [](){},
+                                    [&](){
+                                            static int epoch = 0;
+                                            if((((epoch % 5) == 0) || (epoch == _epoch - 1)) && (clbls.size() > 0)) {
+                                                tiny_cnn::result result = m_net.test(cvects,clbls);
+                                                std::cout << "Epoch " << epoch << " has passed, accuracy is " << result.accuracy() << std::endl;
+                                            }
+                                            epoch++;
+                                          });
 
 }
 //-------------------------------------------------------------------------------------------------------
@@ -157,7 +174,7 @@ bool CNNClassificator::load(const char *filename)
         fs["inchannels"] >> m_inputchannels;
         fs["outchannels"] >> m_outputchannels;
 
-        m_net = __initNet(m_inputsize, m_inputchannels, m_outputchannels);
+        m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
 
         std::vector<tiny_cnn::float_t> _weights;
         fs["weights"] >> _weights;
@@ -180,32 +197,10 @@ bool CNNClassificator::load(const char *filename)
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-cv::Mat CNNClassificator::predict(const cv::Mat &image) const
+label_t CNNClassificator::predict(const cv::Mat &image) const
 {
-    // Save input image size
-    cv::Size _size(image.cols, image.rows);
-
     m_net.set_netphase(tiny_cnn::net_phase::test);
-    vec_t vect = m_net.predict( __mat2vec_t(image, m_inputsize, m_irm, m_inputchannels) );
-    cv::Mat _outmat;
-    int _type = (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64FC1 : CV_32FC1;
-    switch(m_outputchannels){
-        case 1:
-            _outmat = cv::Mat( m_inputsize, _type, &vect[0]);
-            break;
-        case 3:
-            std::vector<cv::Mat> vmats;
-            vmats.push_back( cv::Mat( m_inputsize, _type, &vect[2*m_inputsize.area()]) );
-            vmats.push_back( cv::Mat( m_inputsize, _type, &vect[m_inputsize.area()]) );
-            vmats.push_back( cv::Mat( m_inputsize, _type, &vect[0]) );
-            cv::merge(vmats,_outmat);
-            break;
-    }
-    cv::normalize(_outmat, _outmat, 0.0, 1.0, cv::NORM_MINMAX);
-
-    // Restore input size with respect to ImageResizeMethod
-    _outmat = __restoreSize(_outmat, _size, m_irm);
-    return _outmat;
+    return m_net.predict_label( __mat2vec_t(image, m_inputsize, m_irm, m_inputchannels) );
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -369,7 +364,7 @@ void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net)
         tiny_cnn::image<unsigned char> img = _net[i]->output_to_image(); // visualize activations of recent input
         cv::Mat mat = tinyimage2mat(img);
         if(mat.empty() == false) {
-            cv::String windowname = (std::string("Activation of layer ") + std::to_string(i)).c_str();
+            cv::String windowname = (std::string("Activation of the layer ") + std::to_string(i)).c_str();
             cv::namedWindow(windowname, CV_WINDOW_NORMAL);
             cv::imshow(windowname, mat);
         }
@@ -420,7 +415,7 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
 //------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------
 template<typename T1, typename T2>
-void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel)
+void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel, size_t *_ulabels)
 {
     if(vraw.size() != vlabel.size()) {
         CV_Error(cv::Error::StsBadArg, "Error in __unskew(): input vectors have different sizes!");
@@ -433,6 +428,10 @@ void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::v
 
     size_t uniquelabels = _last - _templabel.begin();
 
+    if(_ulabels)
+        *_ulabels = uniquelabels;
+
+    // TO DO this logick can throw away more than 50 % of samples and it is not good, should be rewritten to input
     std::vector<bool> vlogic;
     for(size_t i = 0; i < uniquelabels; i++)
         vlogic.push_back(false);
@@ -459,16 +458,19 @@ void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::v
 template<typename T>
 void __subsetdata(const std::vector<T> &_vin, int _mod, std::vector<T> &_vbig, std::vector<T> &_vsmall)
 {
-    for(size_t i = 0; i < _vin.size(); i++) {
-        if((i % _mod) == 0)
-            _vsmall.push_back(_vin[i]);
-        else
-            _vbig.push_back(_vin[i]);
+    if(_mod != 0) {
+        for(size_t i = 0; i < _vin.size(); i++) {
+            if((i % _mod) == 0)
+                _vsmall.push_back(_vin[i]);
+            else
+                _vbig.push_back(_vin[i]);
+        }
+    } else {
+        _vbig = std::vector<T>(_vin.begin(), _vin.end());
     }
 }
 //------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------
-} // end of the segnet namespace
 
 
 

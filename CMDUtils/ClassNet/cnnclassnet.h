@@ -6,8 +6,6 @@
 #include <opencv2/imgproc.hpp>
 #include <iostream>
 
-namespace segnet {
-
 using namespace tiny_cnn;
 
 enum ImageResizeMethod {CropAndResizeFromCenter, PaddZeroAndResize};
@@ -23,19 +21,21 @@ public:
     /**
      * @brief train - prepares data and starts training for particular number of epoch with desired minibatch
      * @param _vvis - raw images vector, could have arbitrary quantity of channels and 8-bit or 16-bit per channel depth
-     * @param _vseg - label images vector, could have arbitrary quantity of channels and 8-bit or 16-bit per channel depth, each channel will be associated with particular object class
+     * @param _vlabel - labels for training
      * @param _epoch - number of training iterations (one iteration is performed on whole training data set)
      * @param _minibatch - how many samples should be enrolled before parameters of the network will be updated (select in range from 1 to 16), the greater value is used the smoothed loss function will be that in general prevents local minimum jam
+     * @param _t2cprop - divisor for data subsampling into training and control sets, for the instance if _t2cprop eqauls 5 it means that each 5-th sample goes to control set
      */
-    void train(cv::InputArrayOfArrays _vraw, cv::InputArray _vlabel, int _epoch, int _minibatch);
+    void train(cv::InputArrayOfArrays _vraw, const std::vector<label_t> &_vlabel, int _epoch, int _minibatch, int _t2cprop);
     /**
      * @brief update - prepares data and runs another training session, note that update() differs from train() by weight initialization method. The train() method use random weights seeding whereas update() preserves weights that has been learned from previous train() or update() or loaded by load()
      * @param _vvis - same as in train()
      * @param _vseg - same as in train()
      * @param _epoch - same as in train()
      * @param _minibatch - same as in train()
+     * @param _t2cprop - same as in train()
      */
-    void update(cv::InputArrayOfArrays _vraw, cv::InputArray _vlabel, int _epoch, int _minibatch);
+    void update(cv::InputArrayOfArrays _vraw, const std::vector<label_t> &_vlabel, int _epoch, int _minibatch, int _t2cprop);
 
     void save(const char *filename) const;
     bool load(const char *filename);
@@ -52,10 +52,10 @@ public:
     void setImageResizeMethod(ImageResizeMethod method);
     ImageResizeMethod getImageResizeMethod() const;
 
-    cv::Mat predict(const cv::Mat &image) const;
+    label_t predict(const cv::Mat &image) const;
 
 private:
-    void __train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch, bool preservedata);
+    void __train(cv::InputArrayOfArrays _vraw, const std::vector<label_t> &_vlabel, int _epoch, int _minibatch, int _t2cprop, bool preservedata);
     virtual tiny_cnn::network<tiny_cnn::sequential> __createNet(const cv::Size &size, int inchannels, int outchannels);
 
     mutable tiny_cnn::network<tiny_cnn::sequential> m_net;
@@ -126,15 +126,15 @@ template <typename Iterator1, typename Iterator2>
 void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, Iterator2 v2last);
 /**
  * Filters data in a particular way to make equal (or almost equal, i.e. +-1) size of each label subset
+ * Optionaly can return quantity of the unique labels in data by _ulabels argument
  */
 template<typename T1, typename T2>
-void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel);
+void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel, size_t *_ulabels=0);
 /**
  * Divides data into two subset for training and for validation purposes
  */
 template<typename T>
 void __subsetdata(const std::vector<T> &_vin, int _mod, std::vector<T> &_vbig, std::vector<T> &_vsmall);
 
-} // end of the segnet namespace
 
 #endif // CNNCLASSNETH

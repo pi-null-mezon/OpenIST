@@ -4,7 +4,7 @@ QImageFinder::QImageFinder(QObject *parent) : QObject(parent)
 {   
 }
 //--------------------------------------------------------------------------------
-bool QImageFinder::readImagesFromPath(const char *_dirname, std::vector<cv::Mat> &_vvis, std::vector<cv::Mat> &_vseg, bool _cvt2gray, cv::Size _targetSize)
+bool QImageFinder::readImagesFromPath(const char *_dirname, std::vector<cv::Mat> &_vraw, std::vector<tiny_cnn::label_t> &_vlabels, bool _cvt2gray, cv::Size _targetSize)
 {
     QDir _dir(_dirname);
     if(_dir.exists()) {
@@ -15,13 +15,14 @@ bool QImageFinder::readImagesFromPath(const char *_dirname, std::vector<cv::Mat>
         qWarning("\nFiles list in training dir:");
         for(int i = 0; i < _filesList.size(); i++) {
             filename = _filesList[i];
-            qWarning("%d) %s", i, filename.toLocal8Bit().constData());
+            // last number (i.e. last before file extension) after '_' in filename determines label of the example
+            tiny_cnn::label_t _label = static_cast<tiny_cnn::label_t>( (filename.section('_',-1,-1).section('.',0,0)).toUInt() );
+            qWarning("%d) %s, label: %d", i, filename.toLocal8Bit().constData(), _label);
             cv::Mat _mat = __preprocessImage( readImage(_dir.absoluteFilePath(filename)), _cvt2gray, _targetSize);
-            if(!_mat.empty())
-                if(filename.contains('@') == true)
-                    _vseg.push_back( _mat );
-                else
-                    _vvis.push_back( _mat );
+            if(!_mat.empty()) {
+                _vraw.push_back( _mat );
+                _vlabels.push_back( _label );
+            }
         }
         return true;
     }
