@@ -1,8 +1,6 @@
 #include "cnnclassnet.h"
 #include <opencv2/highgui.hpp>
 
-#include <QDebug>
-
 using namespace activation;
 //-------------------------------------------------------------------------------------------------------
 CNNClassificator::CNNClassificator()
@@ -17,14 +15,15 @@ network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inch
     network<sequential> _net;
 
     _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, 16, tiny_cnn::padding::same)
-         << convolutional_layer<relu>(size.width, size.height, 3, 16, 16, tiny_cnn::padding::same)
          << average_pooling_layer<identity>(size.width, size.height, 16, 2)
-         << dropout_layer(size.width/2*size.height/2*16, 0.5)
          << convolutional_layer<relu>(size.width/2, size.height/2, 3, 16, 32, tiny_cnn::padding::same)
          << convolutional_layer<relu>(size.width/2, size.height/2, 3, 32, 32, tiny_cnn::padding::same)
          << average_pooling_layer<identity>(size.width/2, size.height/2, 32, 2)
-         << dropout_layer(size.width/4*size.height/4*32, 0.5)
-         << fully_connected_layer<softmax>(size.width/4 * size.height/4 * 32, outchannels);
+         << convolutional_layer<relu>(size.width/4, size.height/4, 3, 32, 64, tiny_cnn::padding::same)
+         << convolutional_layer<relu>(size.width/4, size.height/4, 3, 64, 64, tiny_cnn::padding::same)
+         << average_pooling_layer<identity>(size.width/4, size.height/4, 64, 2)
+         << dropout_layer(size.width/8 * size.height/8 * 64, 0.5)
+         << fully_connected_layer<softmax>(size.width/8 * size.height/8 * 64, outchannels);
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -67,13 +66,11 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     // Get the vector of labels
     std::vector<label_t> srclabels(_vlabel.begin(), _vlabel.end());
 
-    // Shuffle input pairs in random order, it should prevent overfitting when training samples is taken from different sources
-    __random_shuffle(srcvec_t.begin(),srcvec_t.end(),srclabels.begin(),srclabels.end());
+    // Shuffle and unskew input pairs, it should prevent one class overfitting
     std::vector<label_t> ulbls, tlbls, clbls;
     std::vector<tiny_cnn::vec_t> uvects, tvects, cvects;
-    // Unskew data
     size_t _uniquelables = 0;
-    __unskew(srcvec_t,srclabels, uvects, ulbls, &_uniquelables);
+    __shuffle_and_unskew(srcvec_t, srclabels, uvects, ulbls, &_uniquelables);
     setOutputChannels(static_cast<int>(_uniquelables));
     // Clear memory
     srcvec_t.clear();
@@ -85,10 +82,10 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     ulbls.clear();
     uvects.clear();
 
-    qWarning("Unique labels in dataset %d, %d samples has been selected for training and %d for control", _uniquelables, tvects.size(), cvects.size());
-    for(int i=0; i < tlbls.size(); i++) {
-        qWarning("%d", tlbls[i]);
-    }
+    std::cout << "Data sample data:"
+              << " - snique labels in dataset " << _uniquelables << std::endl
+              << " - samples selected for training " << tvects.size() << std::endl
+              << " - samples selected for control " << cvects.size()  << std::endl;
 
     if(preservedata == false)
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
@@ -208,7 +205,7 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
 {
     // Resize if needed
     cv::Mat _mat;
-    if(img.cols != targetSize.width || img.rows != targetSize.height) {
+    if((targetSize.area() > 0)  && (img.cols != targetSize.width || img.rows != targetSize.height)) {
         switch(resizeMethod){
             case ImageResizeMethod::CropAndResizeFromCenter:
                 _mat =__cropresize(img, targetSize);
@@ -415,42 +412,40 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
 //------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------
 template<typename T1, typename T2>
-void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel, size_t *_ulabels)
+void __shuffle_and_unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel, size_t *_ulabels)
 {
     if(vraw.size() != vlabel.size()) {
         CV_Error(cv::Error::StsBadArg, "Error in __unskew(): input vectors have different sizes!");
         return;
     }
-
+    // Determine number of the unique labels in the input data
     std::vector<T2> _templabel = vlabel;
     std::sort(_templabel.begin(), _templabel.end());
     auto _last = std::unique(_templabel.begin(), _templabel.end());
-
-    size_t uniquelabels = _last - _templabel.begin();
-
+    size_t uniquelabels = static_cast<size_t>(_last - _templabel.begin());
     if(_ulabels)
         *_ulabels = uniquelabels;
 
-    // TO DO this logick can throw away more than 50 % of samples and it is not good, should be rewritten to input
-    std::vector<bool> vlogic;
-    for(size_t i = 0; i < uniquelabels; i++)
-        vlogic.push_back(false);
+    // Create vector of empty vectors with size equal to the number of unique labels
+    // vectors of this vector will store positions of the images for appropriate label
+    std::vector<std::vector<size_t>> v_imagesforlabelpos(uniquelabels, std::vector<size_t>());
 
-    for(size_t i = 0; i < vraw.size(); i++) {
+    // Fill vectors of positions, labels should form continuous row, i.e. {0, 1, 2, 3,...}
+    for(size_t i = 0; i < vlabel.size(); i++)
+        (v_imagesforlabelpos[ vlabel[i] ]).push_back(i);
 
-        for(size_t j = 0; j < vlogic.size(); j++) {
-            if((vlabel[i] == j) && (vlogic[j] == false)) {
-                vlogic[j] = true;
-                _outlabel.push_back(vlabel[i]);
-                _outraw.push_back(vraw[i]);
-            }
+    // Determine label with minimum samples quantity size, then we will use this minimum size for output construction
+    std::vector<size_t> v_vectorsizes(uniquelabels, 0);
+    for(size_t i = 0; i < v_imagesforlabelpos.size(); i++)
+        v_vectorsizes[i] = (v_imagesforlabelpos[i]).size();
+    size_t minsize = *std::min_element(v_vectorsizes.begin(), v_vectorsizes.end());
+
+    // Copy data to the output vectors
+    for(size_t n = 0; n < minsize; n++) {
+        for(size_t i = 0; i < v_imagesforlabelpos.size(); i++) {
+            _outlabel.push_back(i);
+            _outraw.push_back( vraw[ v_imagesforlabelpos[i][n] ] );
         }
-        bool check = true;
-        for(size_t j = 0; j < vlogic.size(); j++)
-              check = check && vlogic[j];
-        if( check == true )
-            for(size_t j = 0; j < vlogic.size(); j++)
-                  vlogic[j] = false;
     }
 }
 //------------------------------------------------------------------------------------------

@@ -74,10 +74,11 @@ int main(int argc, char *argv[])
 
         std::vector<cv::Mat> vimgs;
         std::vector<tiny_cnn::label_t> vlabels;
-        QImageFinder::readImagesFromPath(_indirname, vimgs, vlabels);
-        std::cout << "Found " << vimgs.size() << " images for training\n";
+        QImageFinder::readImagesFromPath(_indirname, vimgs, vlabels, false, cv::Size(_width, _height),ImageResizeMethod::PaddZeroAndResize);
+        std::cout << "Total " << vimgs.size() << " images have been found and preprocessed..." << std::endl;
 
         CNNClassificator net;
+        net.setImageResizeMethod(ImageResizeMethod::PaddZeroAndResize);
         net.setInputChannels(_inchannels);
         net.setInputSize(cv::Size(_width, _height));
 

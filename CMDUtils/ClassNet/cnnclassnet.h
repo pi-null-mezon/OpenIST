@@ -129,7 +129,7 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
  * Optionaly can return quantity of the unique labels in data by _ulabels argument
  */
 template<typename T1, typename T2>
-void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel, size_t *_ulabels=0);
+void __shuffle_and_unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel, size_t *_ulabels=0);
 /**
  * Divides data into two subset for training and for validation purposes
  */
