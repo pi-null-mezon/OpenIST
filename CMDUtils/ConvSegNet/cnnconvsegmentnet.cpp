@@ -15,11 +15,12 @@ CNNConvSegmentnet::~CNNConvSegmentnet()
 network<sequential> CNNConvSegmentnet::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {
     network<sequential> _net;
+    _net.init_weight();
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void CNNConvSegmentnet::initNet(const cv::Size &size, const int inchannels, const int outchannels, const tiny_cnn::float_t *_weights)
+void CNNConvSegmentnet::initNet(const cv::Size &size, const int inchannels, const int outchannels, const tiny_dnn::float_t *_weights)
 {
     setInputSize(size);
     setInputChannels(inchannels);
@@ -28,10 +29,10 @@ void CNNConvSegmentnet::initNet(const cv::Size &size, const int inchannels, cons
     m_net = __createNet(size, inchannels, outchannels);
     // Load weights into the network
     int idx = 0;
-    std::vector<tiny_cnn::vec_t*> _w;
+    std::vector<tiny_dnn::vec_t*> _w;
     for(size_t i = 0; i < m_net.depth(); i++) {
-        _w = m_net[i]->get_weights();
-        tiny_cnn::vec_t *_v;
+        _w = m_net[i]->weights();
+        tiny_dnn::vec_t *_v;
         for(size_t j = 0; j < _w.size(); j++) {
             _v = _w[j];
             for(size_t k = 0; k < _v->size(); k++)
@@ -41,17 +42,17 @@ void CNNConvSegmentnet::initNet(const cv::Size &size, const int inchannels, cons
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void CNNConvSegmentnet::train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch)
+void CNNConvSegmentnet::train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch, int _t2c)
 {
-    __train(_vraw, _vlabel, _epoch, _minibatch, false);
+    __train(_vraw, _vlabel, _epoch, _minibatch, false, _t2c);
 }
-void CNNConvSegmentnet::update(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch)
+void CNNConvSegmentnet::update(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch, int _t2c)
 {
-    __train(_vraw, _vlabel, _epoch, _minibatch, true);
+    __train(_vraw, _vlabel, _epoch, _minibatch, true, _t2c);
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch, bool preservedata)
+void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfArrays _vlabel, int _epoch, int _minibatch, bool preservedata, int _t2c)
 {
     if(_vraw.kind() != cv::_InputArray::STD_VECTOR_MAT && _vlabel.kind() != cv::_InputArray::STD_VECTOR_MAT) {
         cv::String error_message = "CNNConvSegmentnet! - > The images are expected as InputArray::STD_VECTOR_MAT (a std::vector<Mat>).";
@@ -78,8 +79,9 @@ void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfAr
 
     for(size_t it = 0; it < _vmatrawimg.size(); it++) {
         if(it == 0) {
-            if(m_inputchannels == 0)
-                setInputChannels( (_vmatrawimg[it]).channels() );
+            if(m_inputchannels == 0) {
+                setInputChannels((_vmatrawimg[it]).channels());                
+            }
             if(m_outputchannels == 0)
                 setOutputChannels(2); // 0 and 1 labels
         }
@@ -87,38 +89,40 @@ void CNNConvSegmentnet::__train(cv::InputArrayOfArrays _vraw, cv::InputArrayOfAr
         __mosaic(m_inputsize, _vmatrawimg[it], _vlabelimg[it], srcvec_t, srclabel_t);
     }
 
-    // Shuffle input pairs in random order, it should prevent overfitting when training samples is taken from different sources
-    __random_shuffle(srcvec_t.begin(),srcvec_t.end(),srclabel_t.begin(),srclabel_t.end());
-
-    // Unskew dataset (i.e.: make subsampling with equal number of each class volume)
+    // Shuffle and unskew dataset (i.e.: make subsampling with equal number of each class volume)
     std::vector<vec_t> _rawimgs;
     std::vector<label_t> _labels;
-    __unskew(srcvec_t,srclabel_t,_rawimgs,_labels);
+    size_t uniquelabels = 0;
+    __shuffle_and_unskew(srcvec_t, srclabel_t, _rawimgs, _labels, &uniquelabels);
     // clear unused memory
     srcvec_t.clear();
     srclabel_t.clear();
-    // Get test subset
+    // Get test and control subsets
     std::vector<vec_t> _raw2train, _raw2test;
     std::vector<label_t> _lbl2train, _lbl2test;
-    int mod = 11;
-    __subsetdata(_rawimgs, mod, _raw2train, _raw2test);
-    __subsetdata(_labels, mod, _lbl2train, _lbl2test);
+    __subsetdata(_rawimgs, _t2c, _raw2train, _raw2test);
+    __subsetdata(_labels, _t2c, _lbl2train, _lbl2test);
     // clear unused memory
     _rawimgs.clear();
     _labels.clear();
+
+    std::cout << "Metadata:" << std::endl
+              << " - input channels " << getInputChannels() << std::endl
+              << " - samples in training set " << _raw2train.size() << std::endl
+              << " - samples in control set " << _raw2test.size() << std::endl;
 
     if(preservedata == false)
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
 
     // Batch_size is a number of samples enrolled per parameters update
     adam _opt;
-    m_net.train<cross_entropy>(_opt, _raw2train, _lbl2train, static_cast<cnn_size_t>(_minibatch), _epoch,
+    m_net.train<cross_entropy_multiclass>(_opt, _raw2train, _lbl2train, static_cast<cnn_size_t>(_minibatch), _epoch,
                                         [](){ /*visualizeActivations(m_net);*/},
                                         [&](){
                                                 static int ep = 0;
-                                                if(ep % 10 == 0) {
-                                                    tiny_cnn::result _result = m_net.test(_raw2test, _lbl2test);
-                                                    std::cout << "\nEpoch " << ep << " / " << _epoch << " has been passed (accuracy: " << _result.accuracy() << ")";
+                                                if(ep % 5 == 0 || ep == _epoch-1) {
+                                                    tiny_dnn::result _result = m_net.test(_raw2test, _lbl2test);
+                                                    std::cout << "\nEpoch " << ep << " / " << _epoch << " has passed (control set accuracy: " << _result.accuracy() << ")";
                                                 } ep++;
                                               });
 }
@@ -185,16 +189,17 @@ void CNNConvSegmentnet::save(const char *filename) const
     cv::FileStorage fs(filename, cv::FileStorage::WRITE);
     if(fs.isOpened()) {
 
+        fs << "typename" << m_uniquename;
         fs << "width" << m_inputsize.width;
         fs << "height" << m_inputsize.height;
         fs << "inchannels" << m_inputchannels;
         fs << "outchannels" << m_outputchannels;
 
-        std::vector<tiny_cnn::float_t> _weights;
-        std::vector<tiny_cnn::vec_t*> _w;
+        std::vector<tiny_dnn::float_t> _weights;
+        std::vector<tiny_dnn::vec_t*> _w;
         for(size_t i = 0; i < m_net.depth(); i++) {
-            _w = m_net[i]->get_weights();
-            tiny_cnn::vec_t *_v;
+            _w = m_net[i]->weights();
+            tiny_dnn::vec_t *_v;
             for(size_t j = 0; j < _w.size(); j++) {
                 _v = _w[j];
                 _weights.insert(_weights.end(), _v->begin(), _v->end());
@@ -212,6 +217,15 @@ bool CNNConvSegmentnet::load(const char *filename)
     cv::FileStorage fs(filename, cv::FileStorage::READ);
     if(fs.isOpened()) {
 
+        cv::String _name;
+        fs["typename"] >> _name;
+        if(_name != m_uniquename) {
+            cv::String error_message = cv::format("CNNConvSegmentnet! - > Can not load %s data into %s.", _name.c_str(), m_uniquename.c_str());
+            CV_Error(cv::Error::StsBadArg, error_message);
+            fs.release();
+            return false;
+        }
+
         int w, h;
         fs["width"] >> w;
         fs["height"] >> h;
@@ -221,13 +235,13 @@ bool CNNConvSegmentnet::load(const char *filename)
 
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
 
-        std::vector<tiny_cnn::float_t> _weights;
+        std::vector<tiny_dnn::float_t> _weights;
         fs["weights"] >> _weights;
         int idx = 0;
-        std::vector<tiny_cnn::vec_t*> _w;
+        std::vector<tiny_dnn::vec_t*> _w;
         for(size_t i = 0; i < m_net.depth(); i++) {
-            _w = m_net[i]->get_weights();
-            tiny_cnn::vec_t *_v;
+            _w = m_net[i]->weights();
+            tiny_dnn::vec_t *_v;
             for(size_t j = 0; j < _w.size(); j++) {
                 _v = _w[j];
                 for(size_t k = 0; k < _v->size(); k++)
@@ -244,7 +258,7 @@ bool CNNConvSegmentnet::load(const char *filename)
 //-------------------------------------------------------------------------------------------------------
 cv::Mat CNNConvSegmentnet::predict(const cv::Mat &image) const
 {
-    m_net.set_netphase(tiny_cnn::net_phase::test);
+    m_net.set_netphase(tiny_dnn::net_phase::test);
 
     cv::Mat _output = cv::Mat::zeros(image.rows - m_inputsize.height, image.cols - m_inputsize.width, CV_8UC1);
 
@@ -254,15 +268,21 @@ cv::Mat CNNConvSegmentnet::predict(const cv::Mat &image) const
             cv::Mat _tempmat = image(_roirect + cv::Point(x,y));
             vec_t _vp = m_net.predict( __mat2vec_t(_tempmat, m_inputchannels) );
             _output.at<unsigned char>(y,x) = static_cast<unsigned char>(_vp[1]*255);
+
         }
     }
     return _output;
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, int targetChannels, double min, double max)
+void CNNConvSegmentnet::setUniqueName(const cv::String &_name)
 {
-    // Resize if needed
+    m_uniquename = _name;
+}
+//-------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------
+tiny_dnn::vec_t __mat2vec_t(const cv::Mat &img, int targetChannels, double min, double max)
+{
     cv::Mat _mat = img;
 
     // Change channels quantity if needed
@@ -277,8 +297,13 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, int targetChannels, double min, 
             case 3:
                 cv::cvtColor(_mat, _mat, CV_GRAY2BGR);
                 break;
+            case 4:
+                if(_mat.channels() == 3)
+                    cv::cvtColor(_mat, _mat, CV_BGR2BGRA);
+                else
+                    cv::cvtColor(_mat, _mat, CV_GRAY2BGRA);
+                break;
         }
-
     // Convert to float_t type    
     int _maxval = 1;
     switch(_mat.depth()) {
@@ -289,26 +314,21 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, int targetChannels, double min, 
             _maxval = 65535;
             break;
     }
-    _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, (max-min)/_maxval, min);
-
-    // Visualize
-    /*cv::namedWindow("CNNConvSegmentnet", CV_WINDOW_NORMAL);
-    cv::imshow("CNNConvSegmentnet", _mat);
-    cv::waitKey(1);*/
+    _mat.convertTo(_mat, (sizeof(tiny_dnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, (max-min)/_maxval, min);
 
     // Construct vec_t image representation
-    tiny_cnn::vec_t ovect;
+    tiny_dnn::vec_t ovect;
     switch(_mat.channels()) {
         case 1: {
-            tiny_cnn::float_t *ptr = _mat.ptr<tiny_cnn::float_t>(0);
-            ovect = tiny_cnn::vec_t(ptr, ptr + _mat.cols * _mat.rows );
+            tiny_dnn::float_t *ptr = _mat.ptr<tiny_dnn::float_t>(0);
+            ovect = tiny_dnn::vec_t(ptr, ptr + _mat.cols * _mat.rows );
         } break;
         case 3: {
             std::vector<cv::Mat> _vmats;
             cv::split(_mat, _vmats);
             for(int i = 0; i < 3; i++) {
                 cv::Mat _chanmat = _vmats[i];
-                tiny_cnn::float_t *ptr = _chanmat.ptr<tiny_cnn::float_t>(0);
+                tiny_dnn::float_t *ptr = _chanmat.ptr<tiny_dnn::float_t>(0);
                 ovect.insert(ovect.end(), ptr, ptr + _mat.cols * _mat.rows);
             }
         } break;
@@ -318,10 +338,10 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, int targetChannels, double min, 
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net)
+void visualizeActivations(const tiny_dnn::network<tiny_dnn::sequential> &_net)
 {
     for(size_t i = 0; i <_net.depth(); i++) {
-        tiny_cnn::image<unsigned char> img = _net[i]->output_to_image(); // visualize activations of recent input
+        tiny_dnn::image<unsigned char> img = _net[i]->output_to_image(); // visualize activations of recent input
         cv::Mat mat = tinyimage2mat(img);
         if(mat.empty() == false) {
             cv::String windowname = (std::string("Activation of layer ") + std::to_string(i)).c_str();
@@ -333,9 +353,9 @@ void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net)
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void visualizeLastLayerActivation(const tiny_cnn::network<tiny_cnn::sequential> &_net)
+void visualizeLastLayerActivation(const tiny_dnn::network<tiny_dnn::sequential> &_net)
 {
-    tiny_cnn::image<unsigned char> img = _net[_net.depth()-1]->output_to_image(); // visualize activations of recent input
+    tiny_dnn::image<unsigned char> img = _net[_net.depth()-1]->output_to_image(); // visualize activations of recent input
     cv::Mat mat = tinyimage2mat(img);
     if(mat.empty() == false) {
         cv::namedWindow("Last layer activation", CV_WINDOW_NORMAL);
@@ -346,7 +366,7 @@ void visualizeLastLayerActivation(const tiny_cnn::network<tiny_cnn::sequential> 
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
 template<typename T>
-cv::Mat tinyimage2mat(const tiny_cnn::image<T> &_image)
+cv::Mat tinyimage2mat(const tiny_dnn::image<T> &_image)
 {
     std::vector<T> data = _image.data();
     cv::Mat mat = cv::Mat(static_cast<int>(_image.height()), static_cast<int>(_image.width()), CV_8UC1, &data[0]);
@@ -374,41 +394,44 @@ void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, I
 //------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------
 template<typename T1, typename T2>
-void __unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel)
+void __shuffle_and_unskew(const std::vector<T1> &vraw, const std::vector<T2> &vlabel, std::vector<T1> &_outraw, std::vector<T2> &_outlabel, size_t *_ulabels)
 {
     if(vraw.size() != vlabel.size()) {
         CV_Error(cv::Error::StsBadArg, "Error in __unskew(): input vectors have different sizes!");
         return;
     }
-
+    // Determine number of the unique labels in the input data
     std::vector<T2> _templabel = vlabel;
     std::sort(_templabel.begin(), _templabel.end());
     auto _last = std::unique(_templabel.begin(), _templabel.end());
+    size_t uniquelabels = static_cast<size_t>(_last - _templabel.begin());
+    if(_ulabels)
+        *_ulabels = uniquelabels;
 
-    size_t uniquelabels = _last - _templabel.begin();
+    // Create vector of empty vectors with size equal to the number of unique labels
+    // vectors of this vector will store positions of the images for appropriate label
+    std::vector<std::vector<size_t>> v_imagesforlabelpos(uniquelabels, std::vector<size_t>());
 
-    std::vector<bool> vlogic;
-    for(size_t i = 0; i < uniquelabels; i++)
-        vlogic.push_back(false);
+    // Fill vectors of positions, labels should form continuous row, i.e. {0, 1, 2, 3,...}
+    for(size_t i = 0; i < vlabel.size(); i++)
+        (v_imagesforlabelpos[ vlabel[i] ]).push_back(i);
 
-    for(size_t i = 0; i < vraw.size(); i++) {
+    // Determine label with minimum samples quantity size, then we will use this minimum size for output construction
+    std::vector<size_t> v_vectorsizes(uniquelabels, 0);
+    for(size_t i = 0; i < v_imagesforlabelpos.size(); i++)
+        v_vectorsizes[i] = (v_imagesforlabelpos[i]).size();
+    size_t minsize = *std::min_element(v_vectorsizes.begin(), v_vectorsizes.end());
 
-        for(size_t j = 0; j < vlogic.size(); j++) {
-            if((vlabel[i] == j) && (vlogic[j] == false)) {
-                vlogic[j] = true;
-                _outlabel.push_back(vlabel[i]);
-                _outraw.push_back(vraw[i]);
-            }
+    // Copy data to the output vectors
+    for(size_t n = 0; n < minsize; n++) {
+        for(size_t i = 0; i < v_imagesforlabelpos.size(); i++) {
+            _outlabel.push_back(i);
+            _outraw.push_back( vraw[ v_imagesforlabelpos[i][n] ] );
         }
-        bool check = true;
-        for(size_t j = 0; j < vlogic.size(); j++)
-              check = check && vlogic[j];
-        if( check == true )
-            for(size_t j = 0; j < vlogic.size(); j++)
-                  vlogic[j] = false;
     }
 }
-
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
 template<typename T>
 void __subsetdata(const std::vector<T> &_vin, int _mod, std::vector<T> &_vbig, std::vector<T> &_vsmall)
 {
@@ -419,10 +442,11 @@ void __subsetdata(const std::vector<T> &_vin, int _mod, std::vector<T> &_vbig, s
             _vbig.push_back(_vin[i]);
     }
 }
-
 //-------------------------------------------------------------------------------------------------------------------------
 TextSegmentConvNet::TextSegmentConvNet(bool pretrained)
 {
+    setUniqueName("conv-net_for_text_segmentation");
+
     if(pretrained) {
         setInputSize( cv::Size(7,7) );
         setInputChannels(1);
@@ -431,7 +455,7 @@ TextSegmentConvNet::TextSegmentConvNet(bool pretrained)
     }
 }
 //-------------------------------------------------------------------------------------------------------------------------
-tiny_cnn::float_t TextSegmentConvNet::v_pretrainedweights[] = {
+tiny_dnn::float_t TextSegmentConvNet::v_pretrainedweights[] = {
             -1.6169357190442144e+00, -1.0725335296983469e+00,
             -1.1957506751744684e+00, 7.1865706019004194e-01,
             9.9373217319440155e-01, -1.6841600781431854e+00,
@@ -610,7 +634,7 @@ tiny_cnn::float_t TextSegmentConvNet::v_pretrainedweights[] = {
             -3.0942102535616850e-01, 2.7898917227120251e-01,
             2.7025175578780036e-01, -2.7025175578779981e-01 };
 //-------------------------------------------------------------------------------------------------------------------------
-tiny_cnn::network<tiny_cnn::sequential> TextSegmentConvNet::__createNet(const cv::Size &size, int inchannels, int outchannels)
+tiny_dnn::network<tiny_dnn::sequential> TextSegmentConvNet::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {
     network<sequential> _net;
     cnn_size_t _width = static_cast<cnn_size_t>(size.width),
@@ -619,7 +643,7 @@ tiny_cnn::network<tiny_cnn::sequential> TextSegmentConvNet::__createNet(const cv
 
     _net << convolutional_layer<relu>(_width, _height, 5, static_cast<cnn_size_t>(inchannels), _kernels)
          << fully_connected_layer<softmax>((_width-4)*(_height-4)*_kernels, static_cast<cnn_size_t>(outchannels));
-
+    _net.init_weight();
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------------------------

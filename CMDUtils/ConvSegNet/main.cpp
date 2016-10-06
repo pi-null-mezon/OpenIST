@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     #endif
 
     const char *_indirname = 0, *_outcnnfilename = 0;
-    int _epoch = 20, _minibatch = 64, _width = 7, _height = 7, _inchannels = 0, _outchannels = 0;
+    int _epoch = 30, _minibatch = 64, _width = 7, _height = 7, _inchannels = 0, _outchannels = 0, _t2c = 9;
     const char *_incnnfilename = 0, *_inimgfilename = 0, *_outimgfilename = 0;
     while(--argc > 0 && (*++argv)[0] == '-') {
         char _opt = *++argv[0];
@@ -49,23 +49,27 @@ int main(int argc, char *argv[])
         case 'a':
             _outimgfilename = ++(*argv);
             break;
+        case 'p':
+            _t2c = QString(++(*argv)).toInt();
+            break;
         case 'h':
             QString helpstr( "Comand line utility for the image segmentation by means of CNN"
                              "\n To train CNN use:"
                              "\n -i[dirname]  - directory with training data*"
                              "\n -o[filename] - name for the output file with trained network"
                              "\n -e[int] - number of training epoch (ref. to tiny-dnn doc.)"
-                             "\n -m[int] - minibatch size for training (ref. to tiny-dnn doc.)"
+                             "\n -m[int] - minibatch size for training (ref. to tiny-dnn doc.)"                             
                              "\n -c[int] - kernel width (default %1)"
                              "\n -r[int] - kernel height (default %2)"
                              "\n -x[int] - desired number of input channels (0 means same as in source)"
                              "\n -y[int] - desired number of output channels (0 means same as in source)"
+                             "\n -p[int] - each p-th sample will goes to control set (default %3)"
                              "\n To segment image by CNN:"
                              "\n -n[filename] - name for the file with pretrained network"
                              "\n -s[filename] - image for segmentation"
                              "\n -a[filename] - where to save segmented image"
                              "\nAlex A. Taranov, based on Qt, Opencv and tiny-dnn");
-            std::cout << helpstr.arg(QString::number(_width),QString::number(_height)).toLocal8Bit().constData();
+            std::cout << helpstr.arg(QString::number(_width),QString::number(_height),QString::number(_t2c)).toLocal8Bit().constData();
             return 0;
         }
     }
@@ -90,11 +94,11 @@ int main(int argc, char *argv[])
                 std::cout << "Can not load network from file! Abort... " << _incnnfilename;
                 return -1;
             }
-            net.update(vimgs, vlbls, _epoch, _minibatch);
+            net.update(vimgs, vlbls, _epoch, _minibatch, _t2c);
             std::cout << "\nUpdate finished.\n";
         } else {
             std::cout << "Training started...\n";
-            net.train(vimgs, vlbls, _epoch, _minibatch);
+            net.train(vimgs, vlbls, _epoch, _minibatch, _t2c);
             std::cout << "\nTraining finished.\n";
         }
 
@@ -108,9 +112,9 @@ int main(int argc, char *argv[])
         std::cout << "Prediction mode selected\n";
 
         segnet::TextSegmentConvNet net;
-        if(net.load(_incnnfilename))
-            std::cout << "Network loaded from " << _incnnfilename << "\n";
-        else {
+        if(net.load(_incnnfilename)) {
+            std::cout << "Network loaded from " << _incnnfilename << "\n";            
+        } else {
             std::cout << "Can not load network from file! Abort... " << _incnnfilename;
             return -1;
         }

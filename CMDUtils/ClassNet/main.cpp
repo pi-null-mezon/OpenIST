@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     #endif
 
     const char *_indirname = 0, *_outcnnfilename = 0;
-    int _epoch = 30, _minibatch = 4, _width = 32, _height = 32, _inchannels = 0, _outchannels = 0, _t2c = 0;
+    int _epoch = 30, _minibatch = 4, _width = 32, _height = 32, _inchannels = 0, _outchannels = 0, _t2c = 9;
     const char *_incnnfilename = 0, *_inimgfilename = 0;
     while(--argc > 0 && (*++argv)[0] == '-') {
         char _opt = *++argv[0];
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         std::cout << "Training mode selected\n";
 
         std::vector<cv::Mat> vimgs;
-        std::vector<tiny_cnn::label_t> vlabels;
+        std::vector<tiny_dnn::label_t> vlabels;
         QImageFinder::readImagesFromPath(_indirname, vimgs, vlabels, false, cv::Size(_width, _height),ImageResizeMethod::PaddZeroAndResize);
         std::cout << "Total " << vimgs.size() << " images have been found and preprocessed..." << std::endl;
 
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
             return -2;
         }
 
-        std::cout << "Predicted class label is " << net.predict(img);
+        std::cout << "Predicted class label is " << net.predict(img) << std::endl;
     }
 
 

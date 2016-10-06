@@ -30,6 +30,7 @@
 #         << convolutional_layer<softmax>(size.width, size.height, 3, _kernels, outchannels, padding::same);
 #
 # Alex. A. Taranov (september of 2016) with a great respect to open source community and open research data
+typename: seg-net_for_lungs_segmentation
 width: 128
 height: 128
 inchannels: 1
