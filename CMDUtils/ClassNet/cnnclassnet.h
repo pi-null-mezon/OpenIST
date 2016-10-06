@@ -11,7 +11,7 @@ using namespace tiny_dnn;
 enum ImageResizeMethod {CropAndResizeFromCenter, PaddZeroAndResize};
 /**
  * @brief The base abstract class
- * @note Derived classes should override __initNet() method
+ * @note Derived classes should override __createNet() method
  */
 class CNNClassificator
 {

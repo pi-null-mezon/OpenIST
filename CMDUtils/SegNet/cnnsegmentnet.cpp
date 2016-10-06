@@ -15,7 +15,6 @@ CNNSegmentnet::~CNNSegmentnet()
 network<sequential> CNNSegmentnet::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {  
     network<sequential> _net;
-    _net.init_weight();
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -86,8 +85,8 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
     segvec_t.clear();
 
     std::cout << "Metadata:" << std::endl
-              << " - inchannels " << getInputChannels()
-              << " - outchannels " << getOutputChannels()
+              << " - inchannels " << getInputChannels() << std::endl
+              << " - outchannels " << getOutputChannels() << std::endl
               << " - samples in training set " << tvectraw.size() << std::endl
               << " - samples in control set " << cvectraw.size() << std::endl;
 
@@ -184,6 +183,7 @@ bool CNNSegmentnet::load(const char *filename)
         fs["outchannels"] >> m_outputchannels;
 
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
+        m_net.init_weight();
 
         std::vector<tiny_dnn::float_t> _weights;
         fs["weights"] >> _weights;
@@ -503,7 +503,6 @@ network<sequential> SegNetForLungs::__createNet(const cv::Size &size, int inchan
          << convolutional_layer<relu>(width, height, 3, 2*_kernels, 2*_kernels, padding::same)
          << convolutional_layer<relu>(width, height, 3, 2*_kernels, _kernels, padding::same)
          << convolutional_layer<softmax>(width, height, 3, _kernels, static_cast<cnn_size_t>(outchannels), padding::same);
-    _net.init_weight();
     return _net;
 }
 //-----------------------------------------------------------------------------------------

@@ -15,7 +15,6 @@ CNNConvSegmentnet::~CNNConvSegmentnet()
 network<sequential> CNNConvSegmentnet::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {
     network<sequential> _net;
-    _net.init_weight();
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -27,6 +26,7 @@ void CNNConvSegmentnet::initNet(const cv::Size &size, const int inchannels, cons
     setOutputChannels(outchannels);
     // Create empty network with the appropriate structure
     m_net = __createNet(size, inchannels, outchannels);
+    m_net.init_weight();
     // Load weights into the network
     int idx = 0;
     std::vector<tiny_dnn::vec_t*> _w;
@@ -234,6 +234,7 @@ bool CNNConvSegmentnet::load(const char *filename)
         fs["outchannels"] >> m_outputchannels;
 
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
+        m_net.init_weight();
 
         std::vector<tiny_dnn::float_t> _weights;
         fs["weights"] >> _weights;
@@ -296,13 +297,7 @@ tiny_dnn::vec_t __mat2vec_t(const cv::Mat &img, int targetChannels, double min, 
                 break;
             case 3:
                 cv::cvtColor(_mat, _mat, CV_GRAY2BGR);
-                break;
-            case 4:
-                if(_mat.channels() == 3)
-                    cv::cvtColor(_mat, _mat, CV_BGR2BGRA);
-                else
-                    cv::cvtColor(_mat, _mat, CV_GRAY2BGRA);
-                break;
+                break;           
         }
     // Convert to float_t type    
     int _maxval = 1;
@@ -643,7 +638,6 @@ tiny_dnn::network<tiny_dnn::sequential> TextSegmentConvNet::__createNet(const cv
 
     _net << convolutional_layer<relu>(_width, _height, 5, static_cast<cnn_size_t>(inchannels), _kernels)
          << fully_connected_layer<softmax>((_width-4)*(_height-4)*_kernels, static_cast<cnn_size_t>(outchannels));
-    _net.init_weight();
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------------------------

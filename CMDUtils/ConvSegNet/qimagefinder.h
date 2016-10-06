@@ -17,6 +17,8 @@ public:
 
     static bool readImagesFromPath(const char *_dirname, std::vector<cv::Mat> &_vvis, std::vector<cv::Mat> &_vseg);
     static cv::Mat readImage(const QString &fileName);  
+private:
+    static cv::Mat __preprocessImage(const cv::Mat &_img);
 };
 
 

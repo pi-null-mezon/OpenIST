@@ -16,7 +16,7 @@ bool QImageFinder::readImagesFromPath(const char *_dirname, std::vector<cv::Mat>
         for(int i = 0; i < _filesList.size(); i++) {
             filename = _filesList[i];
             qWarning("%d) %s", i, filename.toLocal8Bit().constData());
-            cv::Mat _mat = readImage(_dir.absoluteFilePath(filename));
+            cv::Mat _mat =  __preprocessImage( readImage(_dir.absoluteFilePath(filename) ) );
             if(!_mat.empty())
                 if(filename.contains('@') == true)
                     _vseg.push_back( _mat );
@@ -33,6 +33,15 @@ cv::Mat QImageFinder::readImage(const QString &fileName)
     return cv::imread(fileName.toLocal8Bit().constData(), CV_LOAD_IMAGE_UNCHANGED);
 }
 //--------------------------------------------------------------------------------
-
+cv::Mat QImageFinder::__preprocessImage(const cv::Mat &_img)
+{
+    cv::Mat _out;
+    if(_img.channels() == 4) {
+        cv::cvtColor(_img, _out, CV_BGRA2BGR);
+    } else {
+        _out = _img;
+    }
+    return _out;
+}
 
 

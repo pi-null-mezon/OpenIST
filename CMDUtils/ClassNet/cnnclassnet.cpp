@@ -16,7 +16,6 @@ network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inch
     _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, 16, padding::same)
          << max_pooling_layer<identity>(size.width, size.height, 16, 2)
          << fully_connected_layer<softmax>(size.width/2 * size.height/2 * 16, outchannels);
-    _net.init_weight();
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -176,6 +175,7 @@ bool CNNClassificator::load(const char *filename)
         fs["outchannels"] >> m_outputchannels;
 
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
+        m_net.init_weight();
 
         std::vector<tiny_dnn::float_t> _weights;
         fs["weights"] >> _weights;
