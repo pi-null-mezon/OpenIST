@@ -15,7 +15,15 @@ network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inch
     network<sequential> _net;
     _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, 16, padding::same)
          << average_pooling_layer<identity>(size.width, size.height, 16, 2)
-         << fully_connected_layer<softmax>(size.width/2 * size.height/2 * 16, outchannels);
+         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 16, 32, padding::same)
+         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 32, 32, padding::same)
+         << average_pooling_layer<identity>(size.width/2, size.height/2, 32, 2)
+         << convolutional_layer<relu>(size.width/4, size.height/4, 3, 32, 64, padding::same)
+         << convolutional_layer<relu>(size.width/4, size.height/4, 3, 64, 64, padding::same)
+         << convolutional_layer<relu>(size.width/4, size.height/4, 3, 64, 64, padding::same)
+         << average_pooling_layer<identity>(size.width/4, size.height/4, 64, 2)
+         << fully_connected_layer<relu>(size.width/8 * size.height/8 * 64, 10*outchannels)
+         << fully_connected_layer<softmax>(10*outchannels, outchannels);
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -48,7 +56,7 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     for(size_t it = 0; it < srcmats.size(); it++) {
         if(it == 0) {
             if(m_inputchannels == 0)
-                m_inputchannels = (srcmats[it]).channels();
+                setInputChannels( srcmats[it].channels() );
             if(m_inputsize.area() == 0)
                 setInputSize(cv::Size((srcmats[it]).cols,(srcmats[it]).rows));
         }
@@ -76,6 +84,7 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     uvects.clear();
 
     std::cout << "Metadata:" << std::endl
+              << " - inchannels " << getInputChannels() << std::endl
               << " - unique labels in dataset " << _uniquelables << std::endl
               << " - number of samples selected for training " << tvects.size() << std::endl
               << " - number of samples selected for control " << cvects.size()  << std::endl;
@@ -83,7 +92,7 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     if(preservedata == false)
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
     
-    adam _opt;	    
+    adam _opt;
     // Note that for right learning by the fit() function, the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
     m_net.train<cross_entropy>(_opt, tvects, tlbls, static_cast<size_t>(_minibatch), _epoch,
                                     [](){},
