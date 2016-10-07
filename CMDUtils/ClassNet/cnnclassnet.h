@@ -1,12 +1,12 @@
 #ifndef CNNCLASSNETH
 #define CNNCLASSNETH
 
-#include <tiny_dnn/tiny_dnn.h>
+#include <tiny_cnn/tiny_cnn.h>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <iostream>
 
-using namespace tiny_dnn;
+using namespace tiny_cnn;
 
 enum ImageResizeMethod {CropAndResizeFromCenter, PaddZeroAndResize};
 /**
@@ -59,9 +59,9 @@ protected:
 
 private:
     void __train(cv::InputArrayOfArrays _vraw, const std::vector<label_t> &_vlabel, int _epoch, int _minibatch, int _t2cprop, bool preservedata);
-    virtual tiny_dnn::network<tiny_dnn::sequential> __createNet(const cv::Size &size, int inchannels, int outchannels);
+    virtual tiny_cnn::network<tiny_cnn::sequential> __createNet(const cv::Size &size, int inchannels, int outchannels);
 
-    mutable tiny_dnn::network<tiny_dnn::sequential> m_net;
+    mutable tiny_cnn::network<tiny_cnn::sequential> m_net;
     ImageResizeMethod m_irm = PaddZeroAndResize;
     cv::Size m_inputsize;
     int m_inputchannels;
@@ -88,36 +88,36 @@ cv::Mat __cropresize(const cv::Mat &input, const cv::Size size);
 cv::Mat __propresize(const cv::Mat &input, const cv::Size size);
 
 /**
- * @brief __mat2vec_t - converts cv::Mat into tiny_dnn::vec_t
+ * @brief __mat2vec_t - converts cv::Mat into tiny_cnn::vec_t
  * @param img - input image
  * @param targetSize - target size after conversion
  * @param resizeMethod - how input image should be resized to the targetSize
  * @param targetChannels - desired quantity of the output channels
  * @param min - output minimum values
  * @param max - output maximum values
- * @return image in vector format that is used by tiny_dnn::network::fit()/train()
+ * @return image in vector format that is used by tiny_cnn::network::fit()/train()
  */
-tiny_dnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, ImageResizeMethod resizeMethod, int targetChannels, double min=-1.0, double max=1.0);
+tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, ImageResizeMethod resizeMethod, int targetChannels, double min=-1.0, double max=1.0);
 
 /**
  * @brief visualizeActivations - draws activations of all layers in a bunch of windows
  * @param _net - network to parse
  */
-void visualizeActivations(const tiny_dnn::network<tiny_dnn::sequential> &_net);
+void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net);
 
 /**
  * @brief visualizeLastLayerActivation - self explained
  * @param _net - network to parse
  */
-void visualizeLastLayerActivation(const tiny_dnn::network<tiny_dnn::sequential> &_net);
+void visualizeLastLayerActivation(const tiny_cnn::network<tiny_cnn::sequential> &_net);
 
 template<typename T>
 /**
- * @brief tinyimage2mat - converts tiny_dnn::image to cv::Mat image
+ * @brief tinyimage2mat - converts tiny_cnn::image to cv::Mat image
  * @param _image - image that should be converted
  * @return converted image
  */
-cv::Mat tinyimage2mat(const tiny_dnn::image<T> &_image);
+cv::Mat tinyimage2mat(const tiny_cnn::image<T> &_image);
 
 template <typename Iterator1, typename Iterator2>
 /**

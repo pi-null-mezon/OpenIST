@@ -14,7 +14,7 @@ network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inch
 {  
     network<sequential> _net;
     _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, 16, padding::same)
-         << max_pooling_layer<identity>(size.width, size.height, 16, 2)
+         << average_pooling_layer<identity>(size.width, size.height, 16, 2)
          << fully_connected_layer<softmax>(size.width/2 * size.height/2 * 16, outchannels);
     return _net;
 }
@@ -43,7 +43,7 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
 
     // Get the vector of visual images
     std::vector<cv::Mat> srcmats;
-    std::vector<tiny_dnn::vec_t> srcvec_t;
+    std::vector<tiny_cnn::vec_t> srcvec_t;
     _vraw.getMatVector(srcmats);
     for(size_t it = 0; it < srcmats.size(); it++) {
         if(it == 0) {
@@ -60,7 +60,7 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
 
     // Shuffle and unskew input pairs, it should prevent one class overfitting
     std::vector<label_t> ulbls, tlbls, clbls;
-    std::vector<tiny_dnn::vec_t> uvects, tvects, cvects;
+    std::vector<tiny_cnn::vec_t> uvects, tvects, cvects;
     size_t _uniquelables = 0;
     __shuffle_and_unskew(srcvec_t, srclabels, uvects, ulbls, &_uniquelables);
     // The number of the output channels should be equal (or greater) than the number of unique labels
@@ -85,12 +85,12 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     
     adam _opt;	    
     // Note that for right learning by the fit() function, the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
-    m_net.train<cross_entropy_multiclass>(_opt, tvects, tlbls, static_cast<size_t>(_minibatch), _epoch,
+    m_net.train<cross_entropy>(_opt, tvects, tlbls, static_cast<size_t>(_minibatch), _epoch,
                                     [](){},
                                     [&](){
                                             static int epoch = 0;
                                             if((((epoch % 5) == 0) || (epoch == _epoch - 1)) && (clbls.size() > 0)) {
-                                                tiny_dnn::result result = m_net.test(cvects,clbls);
+                                                tiny_cnn::result result = m_net.test(cvects,clbls);
                                                 std::cout << "Epoch " << epoch << " has passed, accuracy is " << result.accuracy() << std::endl;
                                             }
                                             epoch++;
@@ -136,11 +136,11 @@ void CNNClassificator::save(const char *filename) const
         fs << "inchannels" << m_inputchannels;
         fs << "outchannels" << m_outputchannels;
 
-        std::vector<tiny_dnn::float_t> _weights;
-        std::vector<tiny_dnn::vec_t*> _w;
+        std::vector<tiny_cnn::float_t> _weights;
+        std::vector<tiny_cnn::vec_t*> _w;
         for(size_t i = 0; i < m_net.depth(); i++) {
-            _w = m_net[i]->weights();
-            tiny_dnn::vec_t *_v;
+            _w = m_net[i]->get_weights();
+            tiny_cnn::vec_t *_v;
             for(size_t j = 0; j < _w.size(); j++) {
                 _v = _w[j];
                 _weights.insert(_weights.end(), _v->begin(), _v->end());
@@ -174,16 +174,15 @@ bool CNNClassificator::load(const char *filename)
         fs["inchannels"] >> m_inputchannels;
         fs["outchannels"] >> m_outputchannels;
 
-        m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
-        m_net.init_weight();
+        m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);        
 
-        std::vector<tiny_dnn::float_t> _weights;
+        std::vector<tiny_cnn::float_t> _weights;
         fs["weights"] >> _weights;
         int idx = 0;
-        std::vector<tiny_dnn::vec_t*> _w;
+        std::vector<tiny_cnn::vec_t*> _w;
         for(size_t i = 0; i < m_net.depth(); i++) {
-            _w = m_net[i]->weights();
-            tiny_dnn::vec_t *_v;
+            _w = m_net[i]->get_weights();
+            tiny_cnn::vec_t *_v;
             for(size_t j = 0; j < _w.size(); j++) {
                 _v = _w[j];
                 for(size_t k = 0; k < _v->size(); k++)
@@ -201,12 +200,12 @@ bool CNNClassificator::load(const char *filename)
 //-------------------------------------------------------------------------------------------------------
 label_t CNNClassificator::predict(const cv::Mat &image) const
 {
-    m_net.set_netphase(tiny_dnn::net_phase::test);
+    m_net.set_netphase(tiny_cnn::net_phase::test);
     return m_net.predict_label( __mat2vec_t(image, m_inputsize, m_irm, m_inputchannels) );
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-tiny_dnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, ImageResizeMethod resizeMethod, int targetChannels, double min, double max)
+tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, ImageResizeMethod resizeMethod, int targetChannels, double min, double max)
 {
     // Resize if needed
     cv::Mat _mat;
@@ -246,7 +245,7 @@ tiny_dnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
             _maxval = 65535;
             break;
     }
-    _mat.convertTo(_mat, (sizeof(tiny_dnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, (max-min)/_maxval, min);
+    _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, (max-min)/_maxval, min);
 
     // Visualize
     cv::namedWindow("CNNClassificator", CV_WINDOW_NORMAL);
@@ -254,18 +253,18 @@ tiny_dnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
     cv::waitKey(1);
 
     // Construct vec_t image representation
-    tiny_dnn::vec_t ovect;
+    tiny_cnn::vec_t ovect;
     switch(_mat.channels()) {
         case 1: {
-            tiny_dnn::float_t *ptr = _mat.ptr<tiny_dnn::float_t>(0);
-            ovect = tiny_dnn::vec_t(ptr, ptr + _mat.cols * _mat.rows );
+            tiny_cnn::float_t *ptr = _mat.ptr<tiny_cnn::float_t>(0);
+            ovect = tiny_cnn::vec_t(ptr, ptr + _mat.cols * _mat.rows );
         } break;
         case 3: {
             std::vector<cv::Mat> _vmats;
             cv::split(_mat, _vmats);
             for(int i = 0; i < 3; i++) {
                 cv::Mat _chanmat = _vmats[i];
-                tiny_dnn::float_t *ptr = _chanmat.ptr<tiny_dnn::float_t>(0);
+                tiny_cnn::float_t *ptr = _chanmat.ptr<tiny_cnn::float_t>(0);
                 ovect.insert(ovect.end(), ptr, ptr + _mat.cols * _mat.rows);
             }
         } break;
@@ -366,10 +365,10 @@ void CNNClassificator::setUniqueName(const cv::String &_name)
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void visualizeActivations(const tiny_dnn::network<tiny_dnn::sequential> &_net)
+void visualizeActivations(const tiny_cnn::network<tiny_cnn::sequential> &_net)
 {
     for(size_t i = 0; i <_net.depth(); i++) {
-        tiny_dnn::image<unsigned char> img = _net[i]->output_to_image(); // visualize activations of recent input
+        tiny_cnn::image<unsigned char> img = _net[i]->output_to_image(); // visualize activations of recent input
         cv::Mat mat = tinyimage2mat(img);
         if(mat.empty() == false) {
             cv::String windowname = (std::string("Activation of the layer ") + std::to_string(i)).c_str();
@@ -382,9 +381,9 @@ void visualizeActivations(const tiny_dnn::network<tiny_dnn::sequential> &_net)
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
-void visualizeLastLayerActivation(const tiny_dnn::network<tiny_dnn::sequential> &_net)
+void visualizeLastLayerActivation(const tiny_cnn::network<tiny_cnn::sequential> &_net)
 {
-    tiny_dnn::image<unsigned char> img = _net[_net.depth()-1]->output_to_image(); // visualize activations of recent input
+    tiny_cnn::image<unsigned char> img = _net[_net.depth()-1]->output_to_image(); // visualize activations of recent input
     cv::Mat mat = tinyimage2mat(img);
     if(mat.empty() == false) {
         cv::namedWindow("Last layer activation", CV_WINDOW_NORMAL);
@@ -395,7 +394,7 @@ void visualizeLastLayerActivation(const tiny_dnn::network<tiny_dnn::sequential> 
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
 template<typename T>
-cv::Mat tinyimage2mat(const tiny_dnn::image<T> &_image)
+cv::Mat tinyimage2mat(const tiny_cnn::image<T> &_image)
 {
     std::vector<T> data = _image.data();
     cv::Mat mat = cv::Mat(static_cast<int>(_image.height()), static_cast<int>(_image.width()), CV_8UC1, &data[0]);
