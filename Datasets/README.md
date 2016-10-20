@@ -4,7 +4,7 @@ Here you can find some data sets and links to datasets for project testing
 - Name: Chest X-RAY
 - Type: local
 - Description: x-ray images of normal human chest without meta-information about sex and scanner
-- Volume: 420 images
+- Volume: 225 pairs of images
 - Formats: 8-bit jpg for images and 8-bit png for labeled images (labeled images end by @ symbol)
 - Sizes: not fixed
 - Original link: http://www.chestx-ray.com/index.php/education/normal-cxr-module-train-your-eye#!1
