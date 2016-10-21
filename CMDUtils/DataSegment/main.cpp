@@ -65,7 +65,8 @@ int main(int argc, char *argv[])
         } else {
             cv::Mat _simg = _segnet.predict(_img);
             _simg.convertTo(_simg, CV_8U, 255, 0);
-            cv::threshold(_simg,_simg,0.0,255.0, CV_THRESH_OTSU);
+            // In most cases Otsu works better than fixed threshold
+            cv::threshold(_simg,_simg,0.0,255.0,CV_THRESH_OTSU);
             _img.copyTo(_simg,_simg);
             cv::imwrite((outdir.absolutePath() + "/" + l_files[i]).toLocal8Bit().constData(), _simg);
             std::cout << " " << i << ") "<< l_files[i].toLocal8Bit().constData() << " has been segmented" << std::endl;

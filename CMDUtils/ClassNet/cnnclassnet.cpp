@@ -16,14 +16,11 @@ network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inch
     _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, 16, padding::same)
          << average_pooling_layer<identity>(size.width, size.height, 16, 2)
          << convolutional_layer<relu>(size.width/2, size.height/2, 3, 16, 32, padding::same)
-         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 32, 32, padding::same)
          << average_pooling_layer<identity>(size.width/2, size.height/2, 32, 2)
          << convolutional_layer<relu>(size.width/4, size.height/4, 3, 32, 64, padding::same)
-         << convolutional_layer<relu>(size.width/4, size.height/4, 3, 64, 64, padding::same)
-         << convolutional_layer<relu>(size.width/4, size.height/4, 3, 64, 64, padding::same)
-         << average_pooling_layer<identity>(size.width/4, size.height/4, 64, 2)
-         << fully_connected_layer<relu>(size.width/8 * size.height/8 * 64, 10*outchannels)
-         << fully_connected_layer<softmax>(10*outchannels, outchannels);
+         << dropout_layer(size.width/4*size.height/4*64, 0.5)
+         << fully_connected_layer<relu>(size.width/4*size.height/4*64, 16*outchannels)
+         << fully_connected_layer<softmax>(16*outchannels, outchannels);
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -83,7 +80,7 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     ulbls.clear();
     uvects.clear();
 
-    std::cout << "Metadata:" << std::endl
+    std::cout << std::endl << "Metadata:" << std::endl
               << " - inchannels " << getInputChannels() << std::endl
               << " - unique labels in dataset " << _uniquelables << std::endl
               << " - number of samples selected for training " << tvects.size() << std::endl
@@ -94,13 +91,20 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     
     adam _opt;
     // Note that for right learning by the fit() function, the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
+    std::cout << std::endl << " Epoch\tAccuracy (training / control)" << std::endl;
     m_net.train<cross_entropy>(_opt, tvects, tlbls, static_cast<size_t>(_minibatch), _epoch,
                                     [](){},
                                     [&](){
                                             static int epoch = 0;
-                                            if((((epoch % 5) == 0) || (epoch == _epoch - 1)) && (clbls.size() > 0)) {
-                                                tiny_cnn::result result = m_net.test(cvects,clbls);
-                                                std::cout << "Epoch " << epoch << " has passed, accuracy is " << result.accuracy() << std::endl;
+                                            if(((epoch % 5) == 0) || (epoch == _epoch - 1)) {
+                                                if(clbls.size() > 0) {
+                                                    tiny_cnn::result cresult = m_net.test(cvects,clbls);
+                                                    tiny_cnn::result tresult = m_net.test(tvects,tlbls);
+                                                    std::cout << "  " << epoch << "\t" << tresult.accuracy() << " / " << cresult.accuracy() << std::endl;
+                                                } else {
+                                                    tiny_cnn::result tresult = m_net.test(tvects,tlbls);
+                                                    std::cout << " " << epoch << "\t" << tresult.accuracy() << " / unknown" << std::endl;
+                                                }
                                             }
                                             epoch++;
                                           });
@@ -216,33 +220,46 @@ label_t CNNClassificator::predict(const cv::Mat &image) const
 //-------------------------------------------------------------------------------------------------------
 tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, ImageResizeMethod resizeMethod, int targetChannels, double min, double max)
 {
-    // Resize if needed
     cv::Mat _mat;
-    if((targetSize.area() > 0)  && (img.cols != targetSize.width || img.rows != targetSize.height)) {
-        switch(resizeMethod){
-            case ImageResizeMethod::CropAndResizeFromCenter:
-                _mat =__cropresize(img, targetSize);
-                break;
-            case ImageResizeMethod::PaddZeroAndResize:
-                _mat = __propresize(img, targetSize);
-                break;
-        }
+    // Equalize histogram to normalize brightness distribution across all samples
+    if(img.channels() == 1) {
+        cv::equalizeHist(img,_mat);
     } else {
         _mat = img;
     }
+
     // Change channels quantity if needed
     if((targetChannels > 0) && (targetChannels != _mat.channels()))
         switch(targetChannels) {
             case 1:
                 if(_mat.channels() == 3)
                     cv::cvtColor(_mat, _mat, CV_BGR2GRAY);
-                else
+                else if(_mat.channels() == 4)
                     cv::cvtColor(_mat, _mat, CV_BGRA2GRAY);
+                // Equalize histogram to normalize brightness distribution across all samples
+                cv::equalizeHist(_mat,_mat);
                 break;
             case 3:
                 cv::cvtColor(_mat, _mat, CV_GRAY2BGR);
                 break;
         }
+
+    // Resize if needed
+    if((targetSize.area() > 0)  && (img.cols != targetSize.width || img.rows != targetSize.height)) {
+        switch(resizeMethod){
+            case ImageResizeMethod::CropAndResizeFromCenter:
+                _mat =__cropresize(_mat, targetSize);
+                break;
+            case ImageResizeMethod::PaddZeroAndResize:
+                _mat = __propresize(_mat, targetSize);
+                break;
+        }
+    }
+
+    // Visualize
+    cv::namedWindow("CNNClassificator", CV_WINDOW_NORMAL);
+    cv::imshow("CNNClassificator", _mat);
+    cv::waitKey(1);
 
     // Convert to float_t type    
     int _maxval = 1;
@@ -256,10 +273,6 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
     }
     _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, (max-min)/_maxval, min);
 
-    // Visualize
-    cv::namedWindow("CNNClassificator", CV_WINDOW_NORMAL);
-    cv::imshow("CNNClassificator", _mat);
-    cv::waitKey(1);
 
     // Construct vec_t image representation
     tiny_cnn::vec_t ovect;
