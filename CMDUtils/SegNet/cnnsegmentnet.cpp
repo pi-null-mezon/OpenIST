@@ -236,20 +236,14 @@ cv::Mat CNNSegmentnet::predict(const cv::Mat &image) const
 //-------------------------------------------------------------------------------------------------------
 tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, ImageResizeMethod resizeMethod, int targetChannels, double min, double max)
 {
-    // Resize if needed
     cv::Mat _mat;
-    if(img.cols != targetSize.width || img.rows != targetSize.height) {
-        switch(resizeMethod){
-            case ImageResizeMethod::CropAndResizeFromCenter:
-                _mat =__cropresize(img, targetSize);
-                break;
-            case ImageResizeMethod::PaddZeroAndResize:
-                _mat = __propresize(img, targetSize);
-                break;
-        }
+    // Equalize histogram to normalize brightness distribution across all samples
+    if(img.channels() == 1) {
+        cv::equalizeHist(img,_mat);
     } else {
         _mat = img;
     }
+
     // Change channels quantity if needed
     if((targetChannels > 0) && (targetChannels != _mat.channels()))
         switch(targetChannels) {
@@ -258,11 +252,30 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
                     cv::cvtColor(_mat, _mat, CV_BGR2GRAY);
                 else
                     cv::cvtColor(_mat, _mat, CV_BGRA2GRAY);
+                // Equalize histogram to normalize brightness distribution across all samples
+                cv::equalizeHist(_mat,_mat);
                 break;
             case 3:
                 cv::cvtColor(_mat, _mat, CV_GRAY2BGR);
                 break;
         }
+
+    // Resize if needed
+    if(img.cols != targetSize.width || img.rows != targetSize.height) {
+        switch(resizeMethod) {
+            case ImageResizeMethod::CropAndResizeFromCenter:
+                _mat =__cropresize(_mat, targetSize);
+                break;
+            case ImageResizeMethod::PaddZeroAndResize:
+                _mat = __propresize(_mat, targetSize);
+                break;
+        }
+    }
+
+    // Visualize
+    cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);
+    cv::imshow("CNNSegmentnet", _mat);
+    cv::waitKey(1);
 
     // Convert to float_t type    
     int _maxval = 1;
@@ -274,12 +287,7 @@ tiny_cnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
             _maxval = 65535;
             break;
     }
-    _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, (max-min)/_maxval, min);
-
-    // Visualize
-    cv::namedWindow("CNNSegmentnet", CV_WINDOW_NORMAL);
-    cv::imshow("CNNSegmentnet", _mat);
-    cv::waitKey(1);
+    _mat.convertTo(_mat, (sizeof(tiny_cnn::float_t) == sizeof(double)) ? CV_64F : CV_32F, (max-min)/_maxval, min);  
 
     // Construct vec_t image representation
     tiny_cnn::vec_t ovect;
