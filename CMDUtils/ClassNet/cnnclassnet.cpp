@@ -12,15 +12,15 @@ CNNClassificator::~CNNClassificator()
 //-------------------------------------------------------------------------------------------------------
 network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {  
+    int _kernels = 21;
     network<sequential> _net;
-    _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, 16, padding::same)
-         << average_pooling_layer<identity>(size.width, size.height, 16, 2)
-         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 16, 32, padding::same)
-         << average_pooling_layer<identity>(size.width/2, size.height/2, 32, 2)
-         << convolutional_layer<relu>(size.width/4, size.height/4, 3, 32, 64, padding::same)
-         << dropout_layer(size.width/4*size.height/4*64, 0.5)
-         << fully_connected_layer<relu>(size.width/4*size.height/4*64, 16*outchannels)
-         << fully_connected_layer<softmax>(16*outchannels, outchannels);
+    _net << convolutional_layer<tan_h>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+         << average_pooling_layer<identity>(size.width, size.height, _kernels, 2)
+         << convolutional_layer<tan_h>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+         << average_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
+         << convolutional_layer<tan_h>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
+         << dropout_layer(size.width/4*size.height/4*4*_kernels, 0.5)
+         << fully_connected_layer<softmax>(size.width/4*size.height/4*4*_kernels, outchannels);
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -96,10 +96,10 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
                                     [](){},
                                     [&](){
                                             static int epoch = 0;
-                                            if(((epoch % 5) == 0) || (epoch == _epoch - 1)) {
+                                            if(((epoch % 1) == 0) || (epoch == _epoch - 1)) {
                                                 if(clbls.size() > 0) {
                                                     tiny_cnn::result cresult = m_net.test(cvects,clbls);
-                                                    tiny_cnn::result tresult = m_net.test(tvects,tlbls);
+                                                    tiny_cnn::result tresult = m_net.test(tvects,tlbls);                                                   
                                                     std::cout << "  " << epoch << "\t" << tresult.accuracy() << " / " << cresult.accuracy() << std::endl;
                                                 } else {
                                                     tiny_cnn::result tresult = m_net.test(tvects,tlbls);
@@ -214,6 +214,9 @@ bool CNNClassificator::load(const char *filename)
 label_t CNNClassificator::predict(const cv::Mat &image) const
 {
     m_net.set_netphase(tiny_cnn::net_phase::test);
+    vec_t res = m_net.predict( __mat2vec_t(image, m_inputsize, m_irm, m_inputchannels) );
+    for(size_t i = 0; i < res.size(); i++)
+        std::cout << "Probability for calss " << i << " is: " << res[i] << std::endl;
     return m_net.predict_label( __mat2vec_t(image, m_inputsize, m_irm, m_inputchannels) );
 }
 //-------------------------------------------------------------------------------------------------------
