@@ -1,0 +1,14 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>Resources/Images/drawer.png</file>
+        <file>Resources/Images/drawer@2x.png</file>
+        <file>Resources/Images/drawer@3x.png</file>
+        <file>Resources/Images/drawer@4x.png</file>
+        <file>Resources/Images/menu.png</file>
+        <file>Resources/Images/menu@2x.png</file>
+        <file>Resources/Images/menu@3x.png</file>
+        <file>Resources/Images/menu@4x.png</file>
+        <file>Resources/Images/Startup.png</file>
+    </qresource>
+</RCC>
