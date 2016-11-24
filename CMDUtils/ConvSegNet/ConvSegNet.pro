@@ -20,5 +20,5 @@ HEADERS += \
 OPENIST_PATH = C:/Programming/OpenIST		   
 		   
 include( $${OPENIST_PATH}/Sharedfiles/opencv.pri )
-include( $${OPENIST_PATH}/Sharedfiles/tinycnn.pri )
+include( $${OPENIST_PATH}/Sharedfiles/tinydnn.pri )
 include( $${OPENIST_PATH}/Sharedfiles/openmp.pri )

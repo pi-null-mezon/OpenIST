@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         std::cout << "Training mode selected\n";
 
         std::vector<cv::Mat> vimgs;
-        std::vector<tiny_cnn::label_t> vlabels;
+        std::vector<tiny_dnn::label_t> vlabels;
         QImageFinder::readImagesFromPath(_indirname, vimgs, vlabels, false, cv::Size(_width, _height),ImageResizeMethod::PaddZeroAndResize);
         std::cout << "Total " << vimgs.size() << " images have been found and preprocessed..." << std::endl;
 

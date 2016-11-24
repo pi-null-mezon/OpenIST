@@ -4,7 +4,7 @@ QImageFinder::QImageFinder(QObject *parent) : QObject(parent)
 {   
 }
 //--------------------------------------------------------------------------------
-bool QImageFinder::readImagesFromPath(const char *_dirname, std::vector<cv::Mat> &_vraw, std::vector<tiny_cnn::label_t> &_vlabels, bool _cvt2gray, cv::Size _targetSize, ImageResizeMethod _irm)
+bool QImageFinder::readImagesFromPath(const char *_dirname, std::vector<cv::Mat> &_vraw, std::vector<tiny_dnn::label_t> &_vlabels, bool _cvt2gray, cv::Size _targetSize, ImageResizeMethod _irm)
 {
     QDir _dir(_dirname);
     if(_dir.exists()) {
@@ -16,7 +16,7 @@ bool QImageFinder::readImagesFromPath(const char *_dirname, std::vector<cv::Mat>
         for(int i = 0; i < _filesList.size(); i++) {
             filename = _filesList[i];
             // last number (i.e. last before file extension) after '_' in filename determines label of the example
-            tiny_cnn::label_t _label = static_cast<tiny_cnn::label_t>( (filename.section('_',-1,-1).section('.',0,0)).toUInt() );
+            tiny_dnn::label_t _label = static_cast<tiny_dnn::label_t>( (filename.section('_',-1,-1).section('.',0,0)).toUInt() );
             qWarning("%d) %s, label: %d", i, filename.toLocal8Bit().constData(), _label);
             cv::Mat _mat = __preprocessImage( readImage(_dir.absoluteFilePath(filename)), _cvt2gray, _targetSize, _irm);
             if(!_mat.empty()) {
