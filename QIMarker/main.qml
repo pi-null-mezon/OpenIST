@@ -112,11 +112,11 @@ ApplicationWindow {
     }
 
     RowLayout {
-        spacing: 10
+        spacing: 0
         anchors.fill: parent
 
         Rectangle {
-            Layout.margins: 10
+            Layout.margins: 5
             Layout.fillWidth: true
             Layout.fillHeight: true
 
@@ -133,7 +133,7 @@ ApplicationWindow {
 
         Rectangle {
             color: "light grey"
-            Layout.margins: 10
+            Layout.margins: 5
             Layout.fillWidth: true
             Layout.fillHeight: true
 

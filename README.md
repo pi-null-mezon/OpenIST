@@ -1,6 +1,6 @@
 # OpenIST
 
-A set of open tools (C++ classes and cmd-utils) for image segmentation with machine learning
+A set of open source tools (C++ classes and cmd-utils) for image segmentation and classification by means of artificial neural networks.
 
 Example of output results (manualy composed by GIMP)
 
@@ -9,4 +9,4 @@ Example of output results (manualy composed by GIMP)
 
 **Acknowledgements**
 
-Project based on Qt, Opencv, DCMTK and tiny-dnn projects. Thank you guys!
+Project based on Qt, OpenCV, DCMTK and tiny-dnn projects. Thank you guys!
