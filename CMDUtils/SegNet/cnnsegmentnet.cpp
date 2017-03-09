@@ -442,8 +442,8 @@ cv::Mat tinyimage2mat(const tiny_dnn::image<T> &_image)
 template <typename Iterator1, typename Iterator2>
 void __random_shuffle (Iterator1 v1first, Iterator1 v1last, Iterator2 v2first, Iterator2 v2last)
 {
-    std::iterator_traits<Iterator1>::difference_type i, v1length = v1last - v1first;
-    std::iterator_traits<Iterator2>::difference_type v2length = v2last - v2first;
+    typename std::iterator_traits<Iterator1>::difference_type i, v1length = v1last - v1first;
+    typename std::iterator_traits<Iterator2>::difference_type v2length = v2last - v2first;
     if(v1length != v2length) {
         CV_Error(cv::Error::StsBadArg, "Error in __random_shuffle(): input vectors have different sizes");
         return;
