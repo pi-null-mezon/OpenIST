@@ -52,8 +52,7 @@ win32 {
             -lopencv_highgui \
             -lopencv_imgproc \
             -lopencv_videoio \
-            -lopencv_imgcodecs \
-            -lopencv_face
+            -lopencv_imgcodecs
 }
 
 DEFINES += OPENCV_DIR=\\\"$${OPENCV_DIR}\\\"
