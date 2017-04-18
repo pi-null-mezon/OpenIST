@@ -14,13 +14,15 @@ network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inch
 {  
     int _kernels = 16;
     network<sequential> _net;
-    _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+    _net << convolutional_layer<>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+         << convolutional_layer<relu>(size.width, size.height, 3, _kernels, _kernels, padding::same)
          << max_pooling_layer<identity>(size.width, size.height, _kernels, 2)
-         << convolutional_layer<relu>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+         << convolutional_layer<>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
          << max_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
-         << convolutional_layer<tan_h>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
-         << dropout_layer(size.width/4*size.height/4*4*_kernels, 0.5)
-         << fully_connected_layer<softmax>(size.width/4*size.height/4*4*_kernels, outchannels);
+         << fully_connected_layer<relu>(size.width/4 * size.height/4 * 2 * _kernels, 4*_kernels)
+         << dropout_layer(4*_kernels, 0.5)
+         << fully_connected_layer<softmax>(4*_kernels, outchannels);
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -86,8 +88,18 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
               << " - number of samples selected for training " << tvects.size() << std::endl
               << " - number of samples selected for control " << cvects.size()  << std::endl;
 
-    if(preservedata == false)
+    if(preservedata == false) {
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
+    } else {
+        std::cout << "Checking performance of the network before update:" << std::endl;
+        // This was added to control network weights before updating
+        if(clbls.size() > 0) {
+            tiny_dnn::result cresult = m_net.test(cvects,clbls);
+            tiny_dnn::result tresult = m_net.test(tvects,tlbls);
+            std::cout << " - accuracy on training set: " << tresult.accuracy() << std::endl
+                      << " - accuracy on control set: "  << cresult.accuracy() << std::endl;
+        }
+    }
     
     adam _opt;
     // Note that for right learning by the fit() function, the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
