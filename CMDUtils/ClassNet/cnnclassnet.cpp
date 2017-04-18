@@ -12,12 +12,12 @@ CNNClassificator::~CNNClassificator()
 //-------------------------------------------------------------------------------------------------------
 network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {  
-    int _kernels = 21;
+    int _kernels = 16;
     network<sequential> _net;
-    _net << convolutional_layer<tan_h>(size.width, size.height, 3, inchannels, _kernels, padding::same)
-         << average_pooling_layer<identity>(size.width, size.height, _kernels, 2)
-         << convolutional_layer<tan_h>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
-         << average_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
+    _net << convolutional_layer<relu>(size.width, size.height, 3, inchannels, _kernels, padding::same)
+         << max_pooling_layer<identity>(size.width, size.height, _kernels, 2)
+         << convolutional_layer<relu>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+         << max_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
          << convolutional_layer<tan_h>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
          << dropout_layer(size.width/4*size.height/4*4*_kernels, 0.5)
          << fully_connected_layer<softmax>(size.width/4*size.height/4*4*_kernels, outchannels);

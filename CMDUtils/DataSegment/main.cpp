@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 
     QDir outdir(outputdirname);
     if(outdir.exists() == false) {
-        std::cout << "Output directory does not exist. Thus will be created in " << outputdirname;
+        std::cout << "Output directory does not exist. Thus, it will be created in " << outputdirname;
         outdir.mkpath(outputdirname);
         outdir.cd(outputdirname);
     }
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
             cv::threshold(_simg,_simg,0.0,255.0,CV_THRESH_OTSU);
             _img.copyTo(_simg,_simg);
             cv::imwrite((outdir.absolutePath() + "/" + l_files[i]).toLocal8Bit().constData(), _simg);
-            std::cout << " " << i << ") "<< l_files[i].toLocal8Bit().constData() << " has been segmented" << std::endl;
+            std::cout << " " << i << ") "<< l_files[i].toLocal8Bit().constData() << " has been enrolled and saved" << std::endl;
         }
     }
 

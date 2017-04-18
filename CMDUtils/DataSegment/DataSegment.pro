@@ -15,7 +15,7 @@ OPENIST_PATH = C:/Programming/OpenIST
 
 include($${OPENIST_PATH}/sharedfiles/opencv.pri)
 include($${OPENIST_PATH}/sharedfiles/openmp.pri)
-include($${OPENIST_PATH}/sharedfiles/tinycnn.pri)
+include($${OPENIST_PATH}/sharedfiles/tinydnn.pri)
 
 INCLUDEPATH += $${OPENIST_PATH}/CMDUtils/SegNet
 
