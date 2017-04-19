@@ -12,13 +12,21 @@ CNNClassificator::~CNNClassificator()
 //-------------------------------------------------------------------------------------------------------
 network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inchannels, int outchannels)
 {  
-    int _kernels = 16;
+    // 88 % on Montgomery 512x512
+    /*int _kernels = 16;
     network<sequential> _net;
-    _net << convolutional_layer<relu>(size.width, size.height, 7, inchannels, _kernels, padding::same)
+    _net << convolutional_layer<relu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
          << max_pooling_layer<identity>(size.width, size.height, _kernels, 2)
-         //<< dropout_layer(size.width/2 * size.height/2 * _kernels, 0.5)
-         << fully_connected_layer<softmax>(size.width/2 * size.height/2 * _kernels, outchannels);
-    return _net;
+         << convolutional_layer<relu>(size.width/2,size.height/2, 3, _kernels, _kernels, padding::same)
+         << max_pooling_layer<identity>(size.width/2, size.height/2, _kernels, 2)
+         << fully_connected_layer<softmax>(size.width/4*size.height/4*_kernels, outchannels);
+    return _net;*/
+    int _kernels = 16;
+        network<sequential> _net;
+        _net << convolutional_layer<relu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
+             << max_pooling_layer<identity>(size.width, size.height, _kernels, 2)
+             << fully_connected_layer<softmax>(size.width/2*size.height/2*_kernels, outchannels);
+        return _net;
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------
@@ -77,27 +85,26 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     ulbls.clear();
     uvects.clear();
 
-    std::cout << std::endl << "Metadata:" << std::endl
-              << " - inchannels " << getInputChannels() << std::endl
-              << " - unique labels in dataset " << _uniquelables << std::endl
-              << " - number of samples selected for training " << tvects.size() << std::endl
-              << " - number of samples selected for control " << cvects.size()  << std::endl;
+    std::cout << std::endl << "Metadata:" << std::endl;
     // Let's print labels in trainig and control sets to check if they unskewed
     std::cout << "-----------------------\n" << "Labels in training set:" << std::endl;
     for(size_t i = 1; i < tlbls.size(); ++i) {
         std::cout << tlbls[i-1] << " ";
-        if(i % 30 == 0) {
+        if(i % 35 == 0) {
             std::cout << std::endl;
         }
     }
     std::cout << "\n-----------------------\n" << "Labels in control set:" << std::endl;
     for(size_t i = 1; i < clbls.size(); ++i) {
         std::cout << clbls[i-1] << " ";
-        if(i % 30 == 0) {
+        if(i % 35 == 0) {
             std::cout << std::endl;
         }
     }
-    std::cout << "\n-----------------------\n";
+    std::cout << "\n-----------------------\n" << " - inchannels " << getInputChannels() << std::endl
+              << " - unique labels in dataset " << _uniquelables << std::endl
+              << " - number of samples selected for training " << tvects.size() << std::endl
+              << " - number of samples selected for control " << cvects.size()  << std::endl;;
 
     if(preservedata == false) {
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);

@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     }
 
     if(_indirname != 0) {
-        std::cout << "Training mode selected\n";
+        std::cout << "Training mode selected. Data preprocessing...\n";
 
         std::vector<cv::Mat> vimgs;
         std::vector<tiny_dnn::label_t> vlabels;
