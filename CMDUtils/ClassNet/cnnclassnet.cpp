@@ -14,15 +14,10 @@ network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inch
 {  
     int _kernels = 16;
     network<sequential> _net;
-    _net << convolutional_layer<>(size.width, size.height, 3, inchannels, _kernels, padding::same)
-         << convolutional_layer<relu>(size.width, size.height, 3, _kernels, _kernels, padding::same)
+    _net << convolutional_layer<relu>(size.width, size.height, 7, inchannels, _kernels, padding::same)
          << max_pooling_layer<identity>(size.width, size.height, _kernels, 2)
-         << convolutional_layer<>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
-         << convolutional_layer<relu>(size.width/2, size.height/2, 3, 2*_kernels, 2*_kernels, padding::same)
-         << max_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
-         << fully_connected_layer<relu>(size.width/4 * size.height/4 * 2 * _kernels, 4*_kernels)
-         << dropout_layer(4*_kernels, 0.5)
-         << fully_connected_layer<softmax>(4*_kernels, outchannels);
+         //<< dropout_layer(size.width/2 * size.height/2 * _kernels, 0.5)
+         << fully_connected_layer<softmax>(size.width/2 * size.height/2 * _kernels, outchannels);
     return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -87,11 +82,27 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
               << " - unique labels in dataset " << _uniquelables << std::endl
               << " - number of samples selected for training " << tvects.size() << std::endl
               << " - number of samples selected for control " << cvects.size()  << std::endl;
+    // Let's print labels in trainig and control sets to check if they unskewed
+    std::cout << "-----------------------\n" << "Labels in training set:" << std::endl;
+    for(size_t i = 1; i < tlbls.size(); ++i) {
+        std::cout << tlbls[i-1] << " ";
+        if(i % 30 == 0) {
+            std::cout << std::endl;
+        }
+    }
+    std::cout << "\n-----------------------\n" << "Labels in control set:" << std::endl;
+    for(size_t i = 1; i < clbls.size(); ++i) {
+        std::cout << clbls[i-1] << " ";
+        if(i % 30 == 0) {
+            std::cout << std::endl;
+        }
+    }
+    std::cout << "\n-----------------------\n";
 
     if(preservedata == false) {
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
     } else {
-        std::cout << "Checking performance of the network before update:" << std::endl;
+        std::cout << "\nChecking performance of the network before update:" << std::endl;
         // This was added to control network weights before updating
         if(clbls.size() > 0) {
             tiny_dnn::result cresult = m_net.test(cvects,clbls);
@@ -102,9 +113,9 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     }
     
     adam _opt;
-    // Note that for right learning by the fit() function, the values in label data (segvec_t here) should be normalized to [0.0; 1.0] interval
-    std::cout << std::endl << " Epoch\tAccuracy (training / control)" << std::endl;
-    m_net.train<cross_entropy>(_opt, tvects, tlbls, static_cast<size_t>(_minibatch), _epoch,
+
+    std::cout << "\nEpoch\tAccuracy (training / control)" << std::endl;
+    m_net.train<cross_entropy_multiclass>(_opt, tvects, tlbls, static_cast<size_t>(_minibatch), _epoch,
                                     [](){},
                                     [&](){
                                             static int epoch = 0;
@@ -272,9 +283,9 @@ tiny_dnn::vec_t __mat2vec_t(const cv::Mat &img, const cv::Size targetSize, Image
     }
 
     // Visualize
-    cv::namedWindow("CNNClassificator", CV_WINDOW_NORMAL);
+    /*cv::namedWindow("CNNClassificator", CV_WINDOW_NORMAL);
     cv::imshow("CNNClassificator", _mat);
-    cv::waitKey(1);
+    cv::waitKey(1);*/
 
     // Convert to float_t type    
     int _maxval = 1;
