@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
     }
 
     if(_indirname != 0) {
-        std::cout << "Training mode selected\n";
+        std::cout << "Training mode selected. Prerrocessing data...\n";
 
         segnet::ImageResizeMethod irm = segnet::ImageResizeMethod::PaddZeroAndResize;
 

@@ -12,10 +12,10 @@ bool QImageFinder::readImagesFromPath(const char *_dirname, std::vector<cv::Mat>
         v_namefiltersList << "*.png" << "*.jpg" << "*.bmp";
         QStringList _filesList =  _dir.entryList(v_namefiltersList, QDir::Files | QDir::NoDotAndDotDot);
         QString filename;
-        qWarning("\nFiles list in training dir:");
+        //qWarning("\nFiles list in training dir:");
         for(int i = 0; i < _filesList.size(); i++) {
             filename = _filesList[i];
-            qWarning("%d) %s", i, filename.toLocal8Bit().constData());
+            //qWarning("%d) %s", i, filename.toLocal8Bit().constData());
             cv::Mat _mat = __preprocessImage( readImage(_dir.absoluteFilePath(filename)), _cvt2gray, _targetSize, _irm);
             if(!_mat.empty())
                 if(filename.contains('@') == true)

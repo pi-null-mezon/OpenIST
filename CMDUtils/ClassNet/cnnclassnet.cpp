@@ -137,6 +137,8 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
                                                 }
                                             }
                                             epoch++;
+                                            // Let's make another shuffling
+                                            __random_shuffle(tvects.begin(),tvects.end(),tlbls.begin(),tlbls.end());
                                           });
 
 }
@@ -218,6 +220,7 @@ bool CNNClassificator::load(const char *filename)
         fs["outchannels"] >> m_outputchannels;
 
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);        
+        m_net.init_weight(); // to report to the network that weights were initialized, without this when network will be trained all weights will be reinitialized
 
         std::vector<tiny_dnn::float_t> _weights;
         fs["weights"] >> _weights;
