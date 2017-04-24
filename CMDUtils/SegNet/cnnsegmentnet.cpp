@@ -84,11 +84,11 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
     srcvec_t.clear();
     segvec_t.clear();
 
-    std::cout << "Metadata:" << std::endl
+    std::cout << "\nMetadata:" << std::endl
               << " - inchannels " << getInputChannels() << std::endl
               << " - outchannels " << getOutputChannels() << std::endl
               << " - samples in training set " << tvectraw.size() << std::endl
-              << " - samples in control set " << cvectraw.size() << std::endl;
+              << " - samples in control set " << cvectraw.size() << std::endl << std::endl;
 
     if(preservedata == false)
         m_net = __createNet(m_inputsize, m_inputchannels, m_outputchannels);
@@ -100,7 +100,7 @@ void CNNSegmentnet::__train(cv::InputArrayOfArrays _vvis, cv::InputArrayOfArrays
                                         [&](){
                                               int static epoch = 0;
                                               visualizeLastLayerActivation(m_net);
-                                              if((epoch % 5 == 0) || epoch == _epoch-1)
+                                              if((epoch % 1 == 0) || epoch == _epoch-1)
                                                   std:: cout << "Epoch " << epoch << " passed, control loss is: " << m_net.get_loss<cross_entropy_multiclass>(cvectraw, cvectlbl) << std::endl;
                                               epoch++;
                                               // Let's make another shuffling

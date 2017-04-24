@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 
     QDir outdir(outputdirname);
     if(outdir.exists() == false) {
-        std::cout << "Output directory does not exist. Thus, it will be created in " << outputdirname;
+        std::cout << "Output directory does not exist. Thus, it will be created in " << outputdirname << std::endl;
         outdir.mkpath(outputdirname);
         outdir.cd(outputdirname);
     }
