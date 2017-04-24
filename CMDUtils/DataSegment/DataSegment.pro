@@ -11,11 +11,16 @@ TEMPLATE = app
 
 SOURCES += main.cpp
 
-OPENIST_PATH = C:/Programming/OpenIST
+win32 {
+    OPENIST_PATH = C:/Programming/OpenIST
+}
+linux {
+    OPENIST_PATH = /home/alex/Programming/openist
+}
 
-include($${OPENIST_PATH}/sharedfiles/opencv.pri)
-include($${OPENIST_PATH}/sharedfiles/openmp.pri)
-include($${OPENIST_PATH}/sharedfiles/tinydnn.pri)
+include($${OPENIST_PATH}/Sharedfiles/opencv.pri)
+include($${OPENIST_PATH}/Sharedfiles/openmp.pri)
+include($${OPENIST_PATH}/Sharedfiles/tinydnn.pri)
 
 INCLUDEPATH += $${OPENIST_PATH}/CMDUtils/SegNet
 

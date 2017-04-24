@@ -17,7 +17,12 @@ HEADERS += \
            qimagefinder.h \
            cnnclassnet.h
 
-OPENIST_PATH = C:/Programming/OpenIST		   
+win32 {
+    OPENIST_PATH = C:/Programming/OpenIST
+}
+linux {
+    OPENIST_PATH = /home/alex/Programming/openist
+}
 		   
 include( $${OPENIST_PATH}/Sharedfiles/opencv.pri )
 include( $${OPENIST_PATH}/Sharedfiles/tinydnn.pri )

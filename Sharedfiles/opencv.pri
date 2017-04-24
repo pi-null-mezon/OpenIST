@@ -45,8 +45,8 @@ win32 {
 
 } else {
     OPENCV_DIR = /home/pi/Programming/3rdParties/opencv310/build
-    LIBS += -L/usr/local/lib
-    LIBS += -L/usr/local/bin
+   # LIBS += -L/usr/local/lib
+   # LIBS += -L/usr/local/bin
     LIBS += -lopencv_core \
             -lopencv_objdetect \
             -lopencv_highgui \
