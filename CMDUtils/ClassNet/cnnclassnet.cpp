@@ -21,11 +21,20 @@ network<sequential> CNNClassificator::__createNet(const cv::Size &size, int inch
          << max_pooling_layer<identity>(size.width/2, size.height/2, _kernels, 2)
          << fully_connected_layer<softmax>(size.width/4*size.height/4*_kernels, outchannels);
     return _net;*/
-    int _kernels = 16;
+
+    // 100 % on Montgomery with -p11
+    int _kernels = 8;
         network<sequential> _net;
         _net << convolutional_layer<relu>(size.width, size.height, 5, inchannels, _kernels, padding::same)
              << max_pooling_layer<identity>(size.width, size.height, _kernels, 2)
-             << fully_connected_layer<softmax>(size.width/2*size.height/2*_kernels, outchannels);
+             << convolutional_layer<relu>(size.width/2, size.height/2, 3, _kernels, 2*_kernels, padding::same)
+             << max_pooling_layer<identity>(size.width/2, size.height/2, 2*_kernels, 2)
+             << convolutional_layer<relu>(size.width/4, size.height/4, 3, 2*_kernels, 4*_kernels, padding::same)
+             << max_pooling_layer<identity>(size.width/4, size.height/4, 4*_kernels, 2)
+             << convolutional_layer<relu>(size.width/8, size.height/8, 3, 4*_kernels, 8*_kernels, padding::same)
+             << max_pooling_layer<identity>(size.width/8, size.height/8, 8*_kernels, 2)
+             << fully_connected_layer<relu>(size.width/16*size.height/16*8*_kernels, 64)
+             << fully_connected_layer<softmax>(64, outchannels);
         return _net;
 }
 //-------------------------------------------------------------------------------------------------------
@@ -88,14 +97,14 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
     std::cout << std::endl << "Metadata:" << std::endl;
     // Let's print labels in trainig and control sets to check if they unskewed
     std::cout << "-----------------------\n" << "Labels in training set:" << std::endl;
-    for(size_t i = 1; i < tlbls.size(); ++i) {
+    for(size_t i = 1; i <= tlbls.size(); ++i) {
         std::cout << tlbls[i-1] << " ";
         if(i % 35 == 0) {
             std::cout << std::endl;
         }
     }
     std::cout << "\n-----------------------\n" << "Labels in control set:" << std::endl;
-    for(size_t i = 1; i < clbls.size(); ++i) {
+    for(size_t i = 1; i <= clbls.size(); ++i) {
         std::cout << clbls[i-1] << " ";
         if(i % 35 == 0) {
             std::cout << std::endl;
@@ -118,7 +127,7 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
                       << " - accuracy on control set: "  << cresult.accuracy() << std::endl;
         }
     }
-    
+
     adam _opt;
 
     std::cout << "\nEpoch\tAccuracy (training / control)" << std::endl;
@@ -131,6 +140,9 @@ void CNNClassificator::__train(cv::InputArrayOfArrays _vraw, const std::vector<l
                                                     tiny_dnn::result cresult = m_net.test(cvects,clbls);
                                                     tiny_dnn::result tresult = m_net.test(tvects,tlbls);
                                                     std::cout << "  " << epoch << "\t" << tresult.accuracy() << " / " << cresult.accuracy() << std::endl;
+                                                    if(cresult.accuracy() > 99.99) { // let's save the network weights
+                                                        save((m_backupfileprefix + std::string("(ac_") + std::to_string(cresult.accuracy()) + std::string(").yml")).c_str());
+                                                    }
                                                 } else {
                                                     tiny_dnn::result tresult = m_net.test(tvects,tlbls);
                                                     std::cout << " " << epoch << "\t" << tresult.accuracy() << " / unknown" << std::endl;
@@ -251,6 +263,11 @@ label_t CNNClassificator::predict(const cv::Mat &image) const
     for(size_t i = 0; i < res.size(); i++)
         std::cout << "Probability for calss " << i << " is: " << res[i] << std::endl;
     return m_net.predict_label( __mat2vec_t(image, m_inputsize, m_irm, m_inputchannels) );
+}
+
+void CNNClassificator::setBackupFilePrefix(const char *_prefix)
+{
+    m_backupfileprefix = std::string(_prefix);
 }
 //-------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------

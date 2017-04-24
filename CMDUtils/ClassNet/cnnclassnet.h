@@ -54,6 +54,8 @@ public:
 
     label_t predict(const cv::Mat &image) const;
 
+    void setBackupFilePrefix(const char *_prefix);
+
 protected:
     void setUniqueName(const cv::String &_name);
 
@@ -67,6 +69,7 @@ private:
     int m_inputchannels;
     int m_outputchannels;
     cv::String m_uniquename;
+    std::string m_backupfileprefix;
 };
 
 /**

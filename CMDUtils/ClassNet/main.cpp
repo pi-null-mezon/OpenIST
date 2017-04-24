@@ -70,7 +70,13 @@ int main(int argc, char *argv[])
     }
 
     if(_indirname != 0) {
-        std::cout << "Training mode selected. Data preprocessing...\n";
+
+        if(_outcnnfilename == 0) {
+            std::cout << "You have not provide filname for the output network. Abort...";
+            return -3;
+        }
+
+        std::cout << "Training mode selected. Data preprocessing started...\n";
 
         std::vector<cv::Mat> vimgs;
         std::vector<tiny_dnn::label_t> vlabels;
@@ -81,6 +87,7 @@ int main(int argc, char *argv[])
         net.setImageResizeMethod(ImageResizeMethod::PaddZeroAndResize);
         net.setInputChannels(_inchannels);
         net.setInputSize(cv::Size(_width, _height));
+        net.setBackupFilePrefix(QString(_outcnnfilename).section('.',0,0).toLocal8Bit().constData());
 
         if(_incnnfilename != 0) {
             if(net.load(_incnnfilename)) {
@@ -97,10 +104,8 @@ int main(int argc, char *argv[])
             std::cout << "Training finished.\n";
         }
 
-        if(_outcnnfilename != 0) {
-            net.save(_outcnnfilename);
-            std::cout << "Network has been saved in " << _outcnnfilename << "\n";
-        }
+        net.save(_outcnnfilename);
+        std::cout << "Network has been saved in " << _outcnnfilename << "\n";
     }
 
     if(_incnnfilename != 0 && _inimgfilename != 0) {
@@ -122,7 +127,6 @@ int main(int argc, char *argv[])
 
         std::cout << "Predicted class label is " << net.predict(img) << std::endl;
     }
-
 
     return 0;
 }
